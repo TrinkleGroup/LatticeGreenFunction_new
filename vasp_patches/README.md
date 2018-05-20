@@ -1,4 +1,4 @@
-# vasp_patches
+# VASP patchfiles
 
 Updated patchfiles for reading and applying a lattice Green function based position update in VASP.
 
