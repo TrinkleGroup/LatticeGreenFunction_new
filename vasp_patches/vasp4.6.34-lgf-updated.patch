@@ -1,0 +1,464 @@
+diff -urN vasp.4.6.orig/lgf.F vasp.4.6/lgf.F
+--- vasp.4.6.orig/lgf.F	1969-12-31 18:00:00.000000000 -0600
++++ vasp.4.6/lgf.F	2008-09-25 14:47:42.000000000 -0500
+@@ -0,0 +1,269 @@
++! File: lgf.F
++! Author: Joseph Yasi, University of Illinois at Urbana-Champaign
++!         yasi@uiuc.edu
++! Purpose:
++! Module for reading and applying a lattice green function based
++! position update with VASP 4.6.31
++! Regions are specified just by which elements exist in LGFCAR
++! LGFCAR format:
++! line 1: description of LGF
++! line 2: <Min index region 2> <Max index region 2> <Min displaced ion index> <Max displaced ion index> <total number of ion pairs in LGF>
++! rest of lines: <a> <b> G_{11}(R_b,R_a) G_{12}(R_b,R_a) ... G_{33}(R_b,R_a)
++! Where u_i(R_b) = \sum_{R_a \in region 2,j}G_{ij}(R_b,R_a)f_j(R_a)
++        MODULE LGF
++        USE prec
++        IMPLICIT NONE
++        INCLUDE "lgf.inc"
++
++
++
++        CONTAINS
++
++! Loads the lattice green function from LGFCAR
++! Initializes dynamic arrays in LGF data structure
++        SUBROUTINE RD_LGF(LGF,NIONS_,IU0,IU6)
++        USE prec
++        USE main_mpi
++
++        IMPLICIT NONE
++        INTEGER :: NIONS_, IU0, IU6
++        TYPE (lat_green):: LGF
++        INTEGER :: ILATMIN, ILATMAX, JLATMIN, JLATMAX
++        INTEGER :: ILATTOT, JLATTOT, NELEM
++        INTEGER :: I, J, K, L
++        INTEGER, DIMENSION(2) :: TMPIDX
++        REAL(q), DIMENSION(9) :: TMPLAT
++        CHARACTER*1 :: JUNK
++
++        OPEN(UNIT=19,FILE=DIR_APP(1:DIR_LEN)//'LGFCAR',STATUS='OLD',ERR=1000)
++
++        READ(19,*) JUNK  !read in the descriptive name
++
++        
++        READ(19,*) JLATMIN, JLATMAX, ILATMIN, ILATMAX, NELEM
++        IF(IU6 >= 0) &
++       &    WRITE(IU6,*) 'LGF found: ', JLATMIN, JLATMAX, ILATMIN, &
++       &                 ILATMAX, NELEM
++
++        LGF%ILATMIN = ILATMIN
++        LGF%ILATMAX = ILATMAX
++        LGF%JLATMIN = JLATMIN
++        LGF%JLATMAX = JLATMAX
++        LGF%NREGION2 = 0
++
++        IF (ILATMIN.GT.ILATMAX.OR.JLATMIN.GT.JLATMAX.OR.ILATMAX.LE.0.OR.JLATMAX.LE.0) &
++       &        GOTO 1000
++
++        ILATTOT = ILATMAX - ILATMIN + 1
++        JLATTOT = JLATMAX - JLATMIN + 1
++
++        ALLOCATE(LGF%GREENF(3,JLATMIN:JLATMAX,3,ILATMIN:ILATMAX))
++        ALLOCATE(LGF%IDXION(2,1:NELEM))
++        ALLOCATE(LGF%INREGION2(JLATMIN:JLATMAX))
++        ALLOCATE(LGF%FORCES(3,NIONS_))
++        ALLOCATE(LGF%DISPLAC(3,NIONS_))
++        ALLOCATE(LGF%POSOLD(3,NIONS_))
++
++        LGF%GREENF(:,:,:,:) = 0.0_q
++        LGF%INREGION2(:) = .FALSE.
++
++        DO I = 1,NELEM
++                READ(19,*) TMPIDX(1), TMPIDX(2), &
++       &                   TMPLAT(1), TMPLAT(2), TMPLAT(3), &
++       &                   TMPLAT(4), TMPLAT(5), TMPLAT(6), &
++       &                   TMPLAT(7), TMPLAT(8), TMPLAT(9)
++                LGF%GREENF(:,TMPIDX(1),1,TMPIDX(2)) = TMPLAT(1:3)
++                LGF%GREENF(:,TMPIDX(1),2,TMPIDX(2)) = TMPLAT(4:6)
++                LGF%GREENF(:,TMPIDX(1),3,TMPIDX(2)) = TMPLAT(7:9)
++                LGF%IDXION(:,I) = TMPIDX(:)
++                LGF%INREGION2(TMPIDX(1)) = .TRUE.
++                LGF%NREGION2 = LGF%NREGION2 + 1
++        ENDDO
++
++        CLOSE(19)
++
++#ifndef NOXML
++        CALL XML_WRITER_LGF(LGF)
++#endif
++
++        RETURN
++ 1000   IF(IU0 >= 0) WRITE (IU0,*) "Error opening lattice green function file."
++        STOP
++        END SUBROUTINE
++
++! Calculate LGF displacements from the forces
++! All information is stored in the LGF data structure
++! The displacements are output in Cartesian coordinates
++        SUBROUTINE CALC_LGF_DISP(LGF, NIONS_, IU6)
++        IMPLICIT NONE
++        INTEGER :: NIONS_, IU6
++        TYPE (lat_green) :: LGF
++        INTEGER :: I,J,K
++
++        LGF%DRIFT(:) = 0._q
++        LGF%DISPLAC(:,:) = 0._q
++
++        ! Forces are stored in Cartesian Coordinates
++        ! So everything is calculated in Cartesian
++        DO I=LGF%ILATMIN,LGF%ILATMAX
++           DO K=1,3
++              DO J=LGF%JLATMIN,LGF%JLATMAX
++                 IF (.NOT.LGF%INREGION2(J)) CONTINUE
++                 LGF%DISPLAC(K,I) = LGF%DISPLAC(K,I) &
++       &                      + SUM(LGF%GREENF(:,J,K,I)*LGF%FORCES(:,J))
++              ENDDO
++              LGF%DRIFT(K) = LGF%DRIFT(K) + LGF%DISPLAC(K,I)
++           ENDDO
++        ENDDO
++
++        LGF%DRIFT(:) = LGF%DRIFT(:)/NIONS_
++
++        IF(IU6 >= 0) THEN
++           WRITE(IU6,'(A)') 'LGF Displacements (Cartesian): '
++           DO J=1,NIONS_
++              WRITE(IU6,'(3X,3E24.16)') (LGF%DISPLAC(I,J), I=1,3)
++           ENDDO
++           WRITE(IU6,'(A)') 'LGF Drift/ion (Cartesian): '
++           WRITE(IU6,'(3X,3E24.16)') (LGF%DRIFT(I), I=1,3)
++           WRITE(IU6,'(A)') 'Total Harmonic Energy Change: '
++           WRITE(IU6,'(3X,E16.8)') CALC_HARM_ENERGY(LGF)
++        ENDIF
++
++
++        END SUBROUTINE
++
++! Add the displacements to the ion positions
++! CALC_LGF_DISP should be called first
++! POSION is in direct coordinates
++! Displacements and drift are in Cartesian.
++        SUBROUTINE APPLY_LGF(LGF, NIONS_, POSION, LATT_CUR)
++        USE lattice
++        IMPLICIT NONE
++
++        INTEGER :: NIONS_
++        REAL(q) :: POSION(3,NIONS_)
++        TYPE (lat_green) :: LGF
++        REAL(q) :: DISPLAC_WORK(3,NIONS_)
++        TYPE (latt) :: LATT_CUR
++        INTEGER :: I
++
++
++        ! Subtract Drift
++        DO I=1,NIONS_
++           DISPLAC_WORK(:,I) = LGF%DISPLAC(:,I) - LGF%DRIFT(:)
++        ENDDO
++
++        ! Positions are stored in direct
++        ! LGF is in cartesian coordinates
++        ! Displacements must be converted to direct
++        CALL KARDIR(NIONS_,DISPLAC_WORK,LATT_CUR%B)
++
++        ! Displace ions
++        DO I=1,NIONS_
++           POSION(:,I) = POSION(:,I) + DISPLAC_WORK(:,I)
++        ENDDO
++
++        END SUBROUTINE
++
++        REAL(q) FUNCTION CALC_HARM_ENERGY(LGF)
++        IMPLICIT NONE
++        TYPE (lat_green) :: LGF
++
++        CALC_HARM_ENERGY = -SUM(LGF%FORCES(1:3,LGF%JLATMIN:LGF%JLATMAX)*LGF%DISPLAC(1:3,LGF%JLATMIN:LGF%JLATMAX))*0.5_q
++
++        END FUNCTION
++
++        LOGICAL FUNCTION R2_FORCES_CRIT(LGF,EDIFFG)
++        IMPLICIT NONE
++        TYPE (lat_green) :: LGF
++        REAL(q) EDIFFG
++        INTEGER J
++
++        R2_FORCES_CRIT = .TRUE.
++
++        DO J=LGF%JLATMIN,LGF%JLATMAX
++           IF(.NOT.LGF%INREGION2(J)) CONTINUE
++           IF(SQRT(SUM(LGF%FORCES(:,J)**2)) > ABS(EDIFFG)) THEN
++              R2_FORCES_CRIT = .FALSE.
++              RETURN
++           ENDIF
++        ENDDO
++
++        RETURN
++        END FUNCTION
++
++! Read LGF information from INCAR
++! ILGF is a flag for how to apply the LGF
++! 0: don't apply the LGF
++! 1: Apply after each ion relaxation step
++! 2: Apply before each ion relaxation step
++        SUBROUTINE LGF_READER(ILGF, IU0, IU5)
++        IMPLICIT NONE
++
++        INTEGER :: ILGF, IU0, IU5
++        INTEGER :: N, IERR
++        REAL(q) :: RDUM
++        COMPLEX(q) :: CDUM
++        LOGICAL :: LOPEN,LDUM,LEXIST
++        CHARACTER(1) :: CHARAC
++
++        LOPEN=.FALSE.
++        OPEN(UNIT=IU5,FILE='INCAR',STATUS='OLD')
++
++        INQUIRE(FILE='LGFCAR',EXIST=LEXIST)
++
++        ! By default, do an LGF update if LGFCAR exists
++        IF (LEXIST) THEN
++           ILGF=1
++        ELSE
++           ILGF=0
++        ENDIF
++        ! Read ILGF from INCAR
++        CALL RDATAB(LOPEN,'INCAR',IU5,'ILGF','=','#',';','I',&
++       &            ILGF,RDUM,CDUM,LDUM,CHARAC,N,1,IERR)
++        IF (((IERR/=0).AND.(IERR/=3)).OR. &
++       &    ((IERR==0).AND.(N<1))) THEN
++           IF (IU0>=0) &
++       &      WRITE(IU0,*) 'Error reading ''ILGF'' from file INCAR.'
++           GOTO 150
++        ENDIF
++
++ 150    RETURN
++
++        END SUBROUTINE
++
++#ifndef NOXML
++! Write INCAR information to vasprun.xml
++        SUBROUTINE XML_WRITER_LGF(LGF)
++        USE vaspxml
++        IMPLICIT NONE
++        TYPE (lat_green) :: LGF
++        LOGICAL :: LDUM
++        COMPLEX(q) :: CDUM
++        REAL(q) :: RDUM
++        CHARACTER*1 :: CHARAC
++
++
++        CALL XML_INCAR('ILGF', 'I', LGF%ILGF, RDUM, CDUM, LDUM, CHARAC, 1)
++        IF (LGF%ILGF == 0) RETURN
++
++        ! Output LGF?
++
++
++        END SUBROUTINE
++#endif
++
++! Destructor, deallocate dynamic arrays
++        SUBROUTINE CLEANUP_LGF(LGF)
++        IMPLICIT NONE
++        TYPE (lat_green) :: LGF
++
++        DEALLOCATE(LGF%GREENF)
++        DEALLOCATE(LGF%IDXION)
++        DEALLOCATE(LGF%INREGION2)
++        DEALLOCATE(LGF%FORCES)
++        DEALLOCATE(LGF%DISPLAC)
++        DEALLOCATE(LGF%POSOLD)
++
++        END SUBROUTINE
++        END MODULE
+diff -urN vasp.4.6.orig/lgf.inc vasp.4.6/lgf.inc
+--- vasp.4.6.orig/lgf.inc	1969-12-31 18:00:00.000000000 -0600
++++ vasp.4.6/lgf.inc	2008-09-25 14:47:38.000000000 -0500
+@@ -0,0 +1,33 @@
++! File: lgf.inc
++! Author: Joseph Yasi, University of Illinois at Urbana-Champaign
++!         yasi@uiuc.edu
++! Purpose
++! Lattice Green function method include data type
++! for integration in VASP 4.6.31
++! ** Changed by D. Trinkle to use ALLOCATABLE arrays rather than POINTER arrays
++!
++        TYPE lat_green
++
++        REAL(q), DIMENSION(:,:,:,:), ALLOCATABLE :: GREENF ! lattice green function
++        INTEGER, DIMENSION(:,:), ALLOCATABLE :: IDXION ! List of green function
++                                                   ! indexes
++        LOGICAL, DIMENSION(:), ALLOCATABLE :: INREGION2
++
++        REAL(q), DIMENSION(:,:), ALLOCATABLE :: FORCES
++        ! Stored forces, need unconstrained forces
++
++        REAL(q), DIMENSION(:,:), ALLOCATABLE :: DISPLAC ! Displacements, Cartesian
++
++        REAL(q), DIMENSION(:,:), ALLOCATABLE :: POSOLD ! Displacements, Cartesian
++
++        REAL(q) :: DRIFT(3)  ! Drift correction per ion, Cartesian
++
++        INTEGER :: ILATMIN, ILATMAX, JLATMIN, JLATMAX, NREGION2
++        INTEGER :: ILGF ! INCAR flag to control when LGF is applied
++                        ! 0 : Not applied
++                        ! 1 : Applied after each ion relaxation step
++                        ! 2 : Applied before each ion relaxation step
++        END TYPE
++
++
++! vim: set syntax=fortran expandtab tabstop=8 softtabstop=8:
+diff -urN vasp.4.6.orig/main.F vasp.4.6/main.F
+--- vasp.4.6.orig/main.F	2008-09-25 14:44:26.000000000 -0500
++++ vasp.4.6/main.F	2008-09-25 14:46:29.000000000 -0500
+@@ -142,6 +142,11 @@
+ !-MM- Added to write AE charge densities
+       USE aedens
+ !-MM_ end of additions
++!-JY- Added to implement Lattice Green Function updates
++#ifdef SUPPORT_LGF
++      USE lgf
++#endif
++!-JY- end of additions
+       IMPLICIT COMPLEX(q) (C)
+       IMPLICIT REAL(q) (A-B,D-H,O-Z)
+ 
+@@ -204,6 +209,11 @@
+       TYPE (smear_struct) SMEAR_LOOP
+       TYPE (paco_struct) PACO
+       TYPE (energy)      E,E2
++!-JY- Lattice Green Function
++#ifdef SUPPORT_LGF
++      TYPE (lat_green)   LGFDATA
++#endif
++!-JY- End of Lattice Green Function
+ 
+       INTEGER :: NGX,NGY,NGZ,NGXC,NGYC,NGZC
+       INTEGER :: NRPLWV,NBLK,LDIM,LMDIM,LDIM2,LMYDIM
+@@ -634,6 +644,15 @@
+ !-----------------------------------------------------------------------
+       CALL chain_init( T_INFO, IO)
+ 
++#ifdef SUPPORT_LGF
++!-JY--------------------------------------------------------------------
++! lattice green function (INCAR reader)
++!-JY--------------------------------------------------------------------
++      CALL LGF_READER(LGFDATA%ILGF, IO%IU0, IO%IU5) 
++      IF(LGFDATA%ILGF /= 0) &
++     &   CALL RD_LGF(LGFDATA, T_INFO%NIONS, IO%IU0, IO%IU6)
++#endif
++
+ !-----------------------------------------------------------------------
+ !xml finish copying parameters from INCAR to xml file
+ ! no INCAR reading from here 
+@@ -2875,6 +2894,15 @@
+       IF (DYN%ISIF/=0) THEN
+          CALL XML_STRESS(TSIF*FAKT)
+       ENDIF
++
++!-JY- Lattice Green Function needs the unconstrained forces
++!-JY- This probably won't work with the elastic band method because of the
++!-JY- extra image forces.  This needs to be thought out more carefully
++#ifdef SUPPORT_LGF
++      IF (LGFDATA%ILGF /= 0) &
++         LGFDATA%FORCES(:,:) = TIFOR(:,:)
++#endif
++
+ !=======================================================================
+ ! add chain forces and constrain forces
+ !=======================================================================
+@@ -3093,10 +3121,27 @@
+         io_end
+ 
+         DYN%POSIOC=DYN%POSION
++!-JY- ILGF==2 -> lattice green function update before relaxation step
++#ifdef SUPPORT_LGF
++      IF (LGFDATA%ILGF == 2 .AND..NOT. LSTOP2) THEN
++         CALL CALC_LGF_DISP(LGFDATA, T_INFO%NIONS, IO%IU6)
++         CALL APPLY_LGF(LGFDATA, T_INFO%NIONS, DYN%POSION, LATT_CUR)
++      ENDIF
++#endif
++
++
+         CALL FINITE_DIFF( INFO%LSTOP, DYN%POTIM, T_INFO%NIONS, T_INFO%NTYP, &
+              T_INFO%NITYP, T_INFO%POMASS, DYN%POSION, TIFOR, DYN%NFREE, &
+              T_INFO%LSDYN,T_INFO%LSFOR, LATT_CUR%A, LATT_CUR%B,  &
+              IO%IU6, IO%IU0)
++
++!-JY- ILGF==1 -> lattice green function update after relaxation step
++#ifdef SUPPORT_LGF
++      IF (LGFDATA%ILGF == 1 .AND..NOT. LSTOP2) THEN
++         CALL CALC_LGF_DISP(LGFDATA, T_INFO%NIONS, IO%IU6)
++         CALL APPLY_LGF(LGFDATA, T_INFO%NIONS, DYN%POSION, LATT_CUR)
++      ENDIF
++#endif
+         ! we need to reinitialise the symmetry code at this point
+         ! at least if the user has switched it on
+         ! this will obviously not regenerate the k-point grid
+@@ -3190,6 +3235,11 @@
+                 &       >ABS(DYN%EDIFFG)) LSTOP2=.FALSE.
+         ENDDO
+         ENDDO
++!-JY- LGF stopping criterion: make sure forces are small in region 2
++#ifdef SUPPORT_LGF
++      IF (LGFDATA%ILGF /= 0) &
++        LSTOP2 = LSTOP2.AND.R2_FORCES_CRIT(LGFDATA,DYN%EDIFFG)
++#endif
+ ! for all DYN%ISIF greater or equal 3 cell shape optimisations will be done
+         FACTSI = 0
+         IF (DYN%ISIF>=3) FACTSI=10*DYN%POTIM*EVTOJ/AMTOKG/T_INFO%NIONS *1E-10_q
+@@ -3236,6 +3286,18 @@
+         CALLMPI_C ( and_chain( LSTOP2 ))
+         CALLMPI_C ( and_chain( INFO%LSTOP ))
+ 
++!-JY- ILGF==2 -> lattice green function update before relaxation step
++#ifdef SUPPORT_LGF
++      IF (LGFDATA%ILGF == 2 .AND..NOT. LSTOP2) THEN
++         CALL CALC_LGF_DISP(LGFDATA, T_INFO%NIONS, IO%IU6)
++         LGFDATA%POSOLD(:,:) = DYN%POSION(:,:)
++         ! Save old positions...
++         ! Each method does this independently, so we could be stepping on toes
++         ! Save it ourself to hold it.
++         CALL APPLY_LGF(LGFDATA, T_INFO%NIONS, DYN%POSION, LATT_CUR)
++      ENDIF
++#endif
++
+         ! IFLAG=0 means no reinit of wavefunction prediction
+         IFLAG=0
+         IF (DYN%IBRION==1) THEN
+@@ -3287,6 +3349,20 @@
+ !-----------------------------------------------------------------------
+         ENDIF
+ 
++!-JY- Lattice Green Function update.  Position update must occur before the
++!-JY- wavefunction prediction update.
++#ifdef SUPPORT_LGF
++      IF (LGFDATA%ILGF == 2 .AND..NOT. LSTOP2) THEN
++         ! Save the old positions since the others were based upon the
++         ! LGF updated positions
++         DYN%POSIOC(:,:) = LGFDATA%POSOLD
++!-JY- ILGF==1 -> Update after ion relaxation step
++      ELSEIF (LGFDATA%ILGF == 1 .AND..NOT. LSTOP2) THEN
++         CALL CALC_LGF_DISP(LGFDATA, T_INFO%NIONS, IO%IU6)
++         CALL APPLY_LGF(LGFDATA, T_INFO%NIONS, DYN%POSION, LATT_CUR)
++      ENDIF
++#endif
++
+ ! restrict volume for constant volume relaxation
+         IF (DYN%ISIF==4 .OR. DYN%ISIF==5) THEN
+            OMEGA_OLD=LATT_CUR%OMEGA
+@@ -3781,6 +3857,14 @@
+       CALL XML_FLUSH
+ 
+       ENDDO ion
++
++!-JY- Cleanup for the Lattice Green Function
++#ifdef SUPPORT_LGF
++      IF(LGFDATA%ILGF /= 0) &
++     &   CALL CLEANUP_LGF(LGFDATA)
++#endif
++!-JY- End cleanup for the Lattice Green Function
++
+ !=======================================================================
+ 
+ !=======================================================================
