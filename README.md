@@ -33,6 +33,7 @@ Before we get started, prepare the following files:
 ...
 ```
 
+
 ## 1. Generating the dislocation force-constant matrix
 
 There are a few ways to do this -- either by approximating the dislocation FCs based on bulk FCs, or by evaluating the dislocation FCs directly in the dislocation geometry using an empirical potential (e.g. EAM, GAP).
@@ -41,8 +42,9 @@ There are a few ways to do this -- either by approximating the dislocation FCs b
 
 ## 2. Evaluating the lattice Green function
 
-Now that we have the dislocation force-constant matrix, we can go ahead and compute the LGF!
-The main script for this is "calc_LGF.py".
+Now that we have the dislocation force-constant matrix, we can go ahead and compute the LGF! :tada:
+
+The main script for this is `calc_LGF.py`.
 ```
 usage: calc_LGF.py [-h] [-LGF_jmin LGF_JMIN] [-LGF_jmax LGF_JMAX]
                    inputfile atomxyzfile Dfile Gfile logfile
@@ -62,6 +64,7 @@ optional arguments:
   -LGF_jmax LGF_JMAX  (int) last atom index to compute LGF for. Default is the last atom in region 2.
 ```
 
+Note that the current version of this code calls functions from `elastic.py` to evaluate the far-field displacements according to the bulk elastic Green function. If you require other boundary conditions, e.g. elastic Green function for a bicrystal, you will have to code those up yourself and call them within `calc_LGF.py` at the part where we set the displacement of atoms in the far-field boundary.
 
 
 
