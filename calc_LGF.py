@@ -60,10 +60,10 @@ if __name__ == '__main__':
 
                      
     parser = argparse.ArgumentParser(description='Computes the dislocation lattice Green function.')
-    parser.add_argument('inputsfile',
-                        help='text file that contains the crystal and dislocation setup info')
+    parser.add_argument('inputfile',
+                        help='input file that contains the crystal and dislocation setup info')
     parser.add_argument('atomxyzfile',
-                        help='text file that contains the atom positions')
+                        help='xyz file that contains the atom positions')
     parser.add_argument('Dfile',
                         help='.mtx file to read the FC matrix D from')
     parser.add_argument('Gfile',
@@ -71,9 +71,9 @@ if __name__ == '__main__':
     parser.add_argument('logfile',
                         help='logfile to save to')
     parser.add_argument('-LGF_jmin',type=int,
-                        help='(int) first atom index to compute LGF for',default=-1)
+                        help='(int) first atom index to compute LGF for. Default is the first atom in region 2.',default=-1)
     parser.add_argument('-LGF_jmax',type=int,
-                        help='(int) last atom index to compute LGF for',default=-1)
+                        help='(int) last atom index to compute LGF for. Default is the last atom in region 2.',default=-1)
     
     
     ## read in the above arguments from command line
@@ -101,7 +101,7 @@ if __name__ == '__main__':
     t_mag       : magnitude of the periodic vector along the dislocation threading direction
                   
     """
-    with open(args.inputsfile,'r') as f1:
+    with open(args.inputfile,'r') as f1:
         crystalclass,A,unitcell_pos,a0,Cijs,M,t_mag = setup.readinputs(f1)
     V = a0**3 * np.dot(A[:,0],np.cross(A[:,1],A[:,2])) ## unit cell volume (Angstroms^3)
     
