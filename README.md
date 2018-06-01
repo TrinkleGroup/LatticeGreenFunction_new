@@ -1,2 +1,69 @@
-# LatticeGreenFunction_new
-Computation of lattice Green function for dislocation topologies
+# Computing the lattice Green function for dislocation topologies
+
+Scripts for computing the force-constant matrix and lattice Green function (LGF) for a dislocation. The LGF is then used within the flexible boundary conditions approach coupled with DFT to relax the dislocation geometry.
+
+The methodology is described in detail in the paper: A. M. Z. Tan and D. R. Trinkle, “Computation of the lattice Green function for a dislocation”, *Phys. Rev. E* **94**, 023308 (2016). All the scripts here were written by A. M. Z. Tan. 
+
+There are essentially 2 parts to this process:
+1. Generating the dislocation force-constant matrix
+2. Evaluating the lattice Green function
+
+Before we get started, prepare the following files:
+- an input file that contains the crystal and dislocation setup info
+```
+<crystal class label>
+<a1.x> <a1.y> <a1.z>
+<a2.x> <a2.y> <a2.z>
+<a3.x> <a3.y> <a3.z>
+<# basis atoms per unit cell>
+<basis atom coordinates in unit cell> (each basis atom is listed on a separate line)
+...
+<a0 (in Angstroms)>
+<Cijs (in GPa)>
+<m.x> <m.y> <m.z>
+<n.x> <n.y> <n.z>
+<t.x> <t.y> <t.z>
+<squared magnitude of periodic vector t>
+```
+- an xyz file that contains the atom positions, ordered by regions
+```
+<total # atoms>
+<# atoms in region 1> <# atoms in regions 1+2> <# atoms in regions 1+2+3> <# atoms in regions 1+2+3+buffer> any other comments
+<basis atom label> <m coord> <n coord> <t coord>
+...
+```
+
+## 1. Generating the dislocation force-constant matrix
+
+There are a few ways to do this -- either by approximating the dislocation FCs based on bulk FCs, or by evaluating the dislocation FCs directly in the dislocation geometry using an empirical potential (e.g. EAM, GAP).
+
+[more to come in this section...]
+
+## 2. Evaluating the lattice Green function
+
+Now that we have the dislocation force-constant matrix, we can go ahead and compute the LGF!
+The main script for this is "calc_LGF.py".
+```
+usage: calc_LGF.py [-h] [-LGF_jmin LGF_JMIN] [-LGF_jmax LGF_JMAX]
+                   inputfile atomxyzfile Dfile Gfile logfile
+
+Computes the dislocation lattice Green function.
+
+positional arguments:
+  inputfile           input file that contains the crystal and dislocation setup info
+  atomxyzfile         xyz file that contains the atom positions
+  Dfile               .mtx file to read the FC matrix D from
+  Gfile               .npy file to save the computed G to
+  logfile             logfile to save to
+
+optional arguments:
+  -h, --help          show this help message and exit
+  -LGF_jmin LGF_JMIN  (int) first atom index to compute LGF for. Default is the first atom in region 2.
+  -LGF_jmax LGF_JMAX  (int) last atom index to compute LGF for. Default is the last atom in region 2.
+```
+
+
+
+
+
+
