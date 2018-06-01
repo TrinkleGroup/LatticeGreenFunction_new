@@ -9,7 +9,7 @@ import IO_xyz
 def setBC(i,grid,size_in,size_all,GEn,phi_R_grid,N,a0,V,t_mag,f):
 
     """
-    Use the large R LGF (= EGF) to displace atoms in the "coupled outside"
+    Use the large R LGF (= EGF) to displace atoms in the far-field boundary
     due to a point force on atom i in region 2.
     
     Parameters
@@ -18,7 +18,7 @@ def setBC(i,grid,size_in,size_all,GEn,phi_R_grid,N,a0,V,t_mag,f):
     grid       : list of namedtuples containing atom info:
                  index, region, m-coord, n-coord, t-coord, basis 
     size_in    : number of atoms in regions 1+2+3+buffer
-    size_all   : total number of atoms in the system, including the "coupled outside" region
+    size_all   : total number of atoms in the system, including the far-field boundary region
     GEn        : list of complex ndarrays of fourier coefficients evaluated for each component of EGF
     phi_R_grid : list of angular terms in the real space large R LGF, computed for 
                  N equally-spaced angular (phi) values. Same as GEn, each entry in 
