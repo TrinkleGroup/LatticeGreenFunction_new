@@ -66,6 +66,33 @@ optional arguments:
 
 Note that the current version of this code calls functions from `elastic.py` to evaluate the far-field displacements according to the bulk elastic Green function. If you require other boundary conditions, e.g. elastic Green function for a bicrystal, you will have to code those up yourself and call them within `calc_LGF.py` at the part where we set the displacement of atoms in the far-field boundary.
 
+Finally, you will need to write out the LGF into an LGFCAR file which will be read in and applied in VASP. The LGFCAR file must have the format:
+```
+<header commenet>
+<min DFT index reg 2> <max DFT index reg 2> <min DFT index reg 123> <max DFT index reg 123> <total # entries>
+<DFT atom index j> <DFT atom index i> <Gxx> <Gxy> <Gxz> <Gyx> <Gyy> <Gyz> <Gzx> <Gzy> <Gzz> (separate line for G between every pair of atoms)
+...
+```
+Note that the DFT atom index is not the same as the atom index used in calculating the LGF! For one, the DFT atom index starts from 1 (since VASP is written in fortran), while we have been using 0-based indexing (python). Furthermore, the atoms in our calculation have been sorted by regions, while the atoms in the VASP calculation are ordered by element. Therefore, if you have a system with more than 1 element, you will need to reorder the LGF entries accordingly before writing to the LGFCAR file.
+
+I have written a script `write_LGFCAR.py` which *should* help you do all this.
+```
+usage: write_LGFCAR.py [-h]
+                       atomxyzfile Gfile LGFCARfile elementlist [elementlist ...] header
+
+Write the LGFCAR.
+
+positional arguments:
+  atomxyzfile  xyz file that contains the atom positions
+  Gfile        .npy file with the computed G
+  LGFCARfile   LGFCAR file to write to
+  elementlist  list of element indices (ints) corresponding to each basis atom
+  header       header for LGFCAR (string)
+
+optional arguments:
+  -h, --help   show this help message and exit
+```
+
 
 
 

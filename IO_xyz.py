@@ -36,7 +36,7 @@ def grid_from_xyz(s,atomtypes,a0):
     return grid
 
 
-def grid_from_xyz_reg(s,atomtypes,a0):
+def grid_from_xyz_reg(s,atomtypes,a0=1.0):
 
     """
     Read from a string containing the data from an xyz file and label atoms by regions.
