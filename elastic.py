@@ -21,12 +21,23 @@ def construct_C(crystalclass,Cijs):
     
     """
     given the crystal class and elastic constants, construct the elastic stiffness tensor
+    I followed the same numbering system as in elastic.H in the anisotropic elasticity codes
+    ** I have currently only implemented this for cubic (4), hexagonal (9) and isotropic (10) !!
     
     Parameters
     ----------
-    crystalclass : 0 = isotropic; 1 = cubic; 2 = hexagonal
-                   (currently not implemented for other crystal classes)
-    Cijs         : list of elastic constants in GPa
+    crystalclass :  0 = triclinic                        (a != b != c, alpha!=beta!=gamma)
+                    1 = monoclinic, diad || x_2          (a != b != c, alpha==gamma==90!=beta)
+                    2: monoclinic, diad || x_3           (a != b != c, alpha==beta==90!=gamma)
+                    3: orthorhombic                      (a != b != c, alpha==beta==gamma==90)
+                    4: cubic          _                  (a == b == c, alpha==beta==gamma==90)
+                    5: tetragonal (4  4  4|m)       _    (a == b != c, alpha==beta==gamma==90)
+                    6: tetragonal (4mm _422  4|mmm  42m) (a == b != c, alpha==beta==gamma==90)
+                    7: trigonal,  (3   3)  _        (a == b != c, alpha==beta==90, gamma==120)
+                    8: trigonal,  (32  3m  3m)      (a == b != c, alpha==beta==90, gamma==120)
+                    9: hexagonal                    (a == b != c, alpha==beta==90, gamma==120)
+                   10: isotropic
+    Cijs : list of elastic constants in GPa
 
     Returns
     -------
@@ -34,7 +45,7 @@ def construct_C(crystalclass,Cijs):
     
     """
     
-    if crystalclass == 0: ## isotropic
+    if crystalclass == 10: ## isotropic
         C11,C12 = Cijs
         C = np.array([[C11,C12,C12,0,0,0],
                       [C12,C11,C12,0,0,0],
@@ -43,7 +54,7 @@ def construct_C(crystalclass,Cijs):
                       [0,0,0,0,(C11-C12)/2.,0],
                       [0,0,0,0,0,(C11-C12)/2.]])
     
-    elif crystalclass == 1: ## cubic
+    elif crystalclass == 4: ## cubic
         C11,C12,C44 = Cijs
         C = np.array([[C11,C12,C12,0,0,0],
                       [C12,C11,C12,0,0,0],
@@ -52,7 +63,7 @@ def construct_C(crystalclass,Cijs):
                       [0,0,0,0,C44,0],
                       [0,0,0,0,0,C44]])
     
-    elif crystalclass == 2: ## hexagonal
+    elif crystalclass == 9: ## hexagonal
         C11,C12,C13,C33,C44 = Cijs
         C = np.array([[C11,C12,C13,0,0,0],
                       [C12,C11,C13,0,0,0],
