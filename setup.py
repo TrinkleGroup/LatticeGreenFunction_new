@@ -49,19 +49,19 @@ def readinputs(f):
         unitcell_pos.append([float(lines[5+i].split()[0]),float(lines[5+i].split()[1]),float(lines[5+i].split()[2])])                 
             
     # lattice constant (Angstroms)
-    a0 = float(lines[-8].split()[0])
+    a0 = float(lines[-6].split()[0])
     
     # elastic constants (GPa)
-    Cijs = [float(lines[-7].split()[0]),float(lines[-7].split()[1]),float(lines[-7].split()[2])]
+    Cijs = [float(lines[-5].split()[0]),float(lines[-5].split()[1]),float(lines[-5].split()[2])]
                   
     # m,n,t
-    m = np.array([float(lines[-6].split()[0]),float(lines[-6].split()[1]),float(lines[-6].split()[2])])
-    n = np.array([float(lines[-5].split()[0]),float(lines[-5].split()[1]),float(lines[-5].split()[2])])
-    t = np.array([float(lines[-4].split()[0]),float(lines[-4].split()[1]),float(lines[-4].split()[2])])
+    m = np.array([float(lines[-4].split()[0]),float(lines[-4].split()[1]),float(lines[-4].split()[2])])
+    n = np.array([float(lines[-3].split()[0]),float(lines[-3].split()[1]),float(lines[-3].split()[2])])
+    t = np.array([float(lines[-2].split()[0]),float(lines[-2].split()[1]),float(lines[-2].split()[2])])
     M = np.array([m/la.norm(m),n/la.norm(n),t/la.norm(t)]).T
     
     # t_mag
-    t_mag = np.sqrt(float(lines[-3].split()[0]))
+    t_mag = np.sqrt(float(lines[-1].split()[0]))
     
     # m,n coordinates of centre of dislocation geometry 
 #    m_c = float(lines[-2].split()[0])
