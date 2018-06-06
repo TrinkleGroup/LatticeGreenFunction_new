@@ -64,25 +64,30 @@ if __name__ == '__main__':
                         help='input file that contains the crystal and dislocation setup info')
     parser.add_argument('atomxyzfile',
                         help='xyz file that contains the atom positions')
+    parser.add_argument('-atomlabel', action='append', required=True,
+                        help='name label for each basis atom type as used in xyz file; '
+                        'may be passed multiple times as required. '
+                        'Place the flag -atomlabel before each entry. '
+                        'Despite the flag, this is a REQUIRED (not optional) argument!')
     parser.add_argument('Dfile',
                         help='.mtx file to read the FC matrix D from')
     parser.add_argument('Gfile',
                         help='.npy file to save the computed G to')
-    parser.add_argument('logfile',
+    parser.add_argument('-logfile',
                         help='logfile to save to')
     parser.add_argument('-LGF_jmin',type=int,
-                        help='(int) first atom index to compute LGF for. Default is the first atom in region 2.',default=-1)
+                        help='(int) first atom index to compute LGF for. '
+                        'Default is the first atom in region 2.')
     parser.add_argument('-LGF_jmax',type=int,
-                        help='(int) last atom index to compute LGF for. Default is the last atom in region 2.',default=-1)
-    
-    
+                        help='(int) last atom index to compute LGF for. '
+                        'Default is the last atom in region 2.')
+       
     ## read in the above arguments from command line
     args = parser.parse_args()   
-    LGF_jmin = args.LGF_jmin
-    LGF_jmax = args.LGF_jmax
     
     ## set up logging
-    logging.basicConfig(filename=args.logfile,filemode='w',format='%(levelname)s:%(message)s', level=logging.DEBUG)
+    if args.logfile:
+        logging.basicConfig(filename=args.logfile,filemode='w',format='%(levelname)s:%(message)s', level=logging.DEBUG)
     console = logging.StreamHandler()
     console.setLevel(logging.INFO)
     console.setFormatter(logging.Formatter('%(levelname)s:%(message)s'))
@@ -111,9 +116,9 @@ if __name__ == '__main__':
            [index, region, m-coord, n-coord, t-coord, basis]
     size_1,size_12,size_123,size_in,size_all: cumulative # atoms in each of the regions
     
-    """   
+    """
     with open(args.atomxyzfile,'r') as f2:
-        grid,[size_1,size_12,size_123,size_in] = IO_xyz.grid_from_xyz_reg(f2.read(),['Fe'],a0)
+        grid,[size_1,size_12,size_123,size_in] = IO_xyz.grid_from_xyz_reg(f2.read(),args.atomlabel,a0)
     size_all = len(grid)
     logging.info('System setup: size_1 = %d, size_12 = %d, size_123 = %d, size_in = %d, size_all = %d'
                   %(size_1,size_12,size_123,size_in,size_all))
@@ -135,10 +140,16 @@ if __name__ == '__main__':
     phi_R_grid = elastic.G_largeR_ang(GEn,N,N_max=int(N/2))
 
     ## compute the LGF matrix
-    logging.info('Looping through atoms...')
-    if LGF_jmin < 0: LGF_jmin = size_1   ## if LGF_jmin not specified, default = size_1
-    if LGF_jmax < 0: LGF_jmax = size_12-1  ## if LGF_jmax not specified, default = size_12-1
+    if args.LGF_jmin: 
+        LGF_jmin = args.LGF_jmin
+    else: 
+        LGF_jmin = size_1  ## if LGF_jmin not specified, default = size_1
+    if args.LGF_jmax: 
+        LGF_jmax = args.LGF_jmax
+    else: 
+        LGF_jmax = size_12-1  ## if LGF_jmax not specified, default = size_12-1
     
+    logging.info('Looping through atoms...')    
     ## loop through every atom and every direction in reg 2
     for j in range(LGF_jmin,LGF_jmax+1):
         for d in range(0,3):
