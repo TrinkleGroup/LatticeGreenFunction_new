@@ -11,7 +11,7 @@ There are essentially 2 parts to this process:
 Before we get started, prepare the following files:
 - an input file that contains the crystal and dislocation setup info
 ```
-<crystal class label>
+<crystal class label (int)> (refer to the documentation in elastic.py for the numbering system)
 <a1.x> <a1.y> <a1.z>
 <a2.x> <a2.y> <a2.z>
 <a3.x> <a3.y> <a3.z>
@@ -46,22 +46,26 @@ Now that we have the dislocation force-constant matrix, we can go ahead and comp
 
 The main script for this is `calc_LGF.py`.
 ```
-usage: calc_LGF.py [-h] [-LGF_jmin LGF_JMIN] [-LGF_jmax LGF_JMAX]
-                   inputfile atomxyzfile Dfile Gfile logfile
+usage: calc_LGF.py [-h] -atomlabel ATOMLABEL [-logfile LOGFILE]
+                   [-LGF_jmin LGF_JMIN] [-LGF_jmax LGF_JMAX]
+                   inputfile atomxyzfile Dfile Gfile
 
 Computes the dislocation lattice Green function.
 
 positional arguments:
-  inputfile           input file that contains the crystal and dislocation setup info
-  atomxyzfile         xyz file that contains the atom positions
-  Dfile               .mtx file to read the FC matrix D from
-  Gfile               .npy file to save the computed G to
-  logfile             logfile to save to
+  inputfile             input file that contains the crystal and dislocation setup info
+  atomxyzfile           xyz file that contains the atom positions
+  Dfile                 .mtx file to read the FC matrix D from
+  Gfile                 .npy file to save the computed G to
 
 optional arguments:
-  -h, --help          show this help message and exit
-  -LGF_jmin LGF_JMIN  (int) first atom index to compute LGF for. Default is the first atom in region 2.
-  -LGF_jmax LGF_JMAX  (int) last atom index to compute LGF for. Default is the last atom in region 2.
+  -h, --help            show this help message and exit
+  -atomlabel ATOMLABEL  name label for each basis atom type as used in xyz file; may be passed multiple times as required.
+						Place the flag -atomlabel before each entry.
+						Despite the flag, this is a REQUIRED (not optional) argument!
+  -logfile LOGFILE      logfile to save to
+  -LGF_jmin LGF_JMIN    (int) first atom index to compute LGF for. Default is the first atom in region 2.
+  -LGF_jmax LGF_JMAX    (int) last atom index to compute LGF for. Default is the last atom in region 2.
 ```
 
 Note that the current version of this code calls functions from `elastic.py` to evaluate the far-field displacements according to the bulk elastic Green function. If you require other boundary conditions, e.g. elastic Green function for a bicrystal, you will have to code those up yourself and call them within `calc_LGF.py` at the part where we set the displacement of atoms in the far-field boundary.
@@ -77,23 +81,29 @@ Note that the DFT atom index is not the same as the atom index used in calculati
 
 I have written a script `write_LGFCAR.py` which *should* help you do all this.
 ```
-usage: write_LGFCAR.py [-h]
-                       atomxyzfile Gfile LGFCARfile elementlist [elementlist ...] header
+usage: write_LGFCAR.py [-h] -atomlabel ATOMLABEL -elementindex ELEMENTINDEX
+                       atomxyzfile Gfile LGFCARfile header
 
 Write the LGFCAR.
 
 positional arguments:
-  atomxyzfile  xyz file that contains the atom positions
-  Gfile        .npy file with the computed G
-  LGFCARfile   LGFCAR file to write to
-  elementlist  list of element indices (ints) corresponding to each basis atom
-  header       header for LGFCAR (string)
+  atomxyzfile           xyz file that contains the atom positions
+  Gfile                 .npy file with the computed G
+  LGFCARfile            LGFCAR file to write to
+  header                header for LGFCAR (string)
 
 optional arguments:
-  -h, --help   show this help message and exit
+  -h, --help            show this help message and exit
+  -atomlabel ATOMLABEL  name label for each basis atom type as used in xyz file; may be passed multiple times as required.
+						Place the flag -atomlabel before each entry.
+						Despite the flag, this is a REQUIRED (not optional) argument!
+  -elementindex ELEMENTINDEX
+                        element index (int) corresponding to each basis atom; may be passed multiple times as required.
+						There should be as many entries for this as there are atom labels, and passed in the same order.
+						Place the flag -elementindex before each entry.
+						Despite the flag, this is a REQUIRED (not optional) argument!
+						The elements must be numbered in the same order as in the POSCAR/POTCAR as this will be used to map atoms onto the DFT ordering.
 ```
-
-
 
 
 
