@@ -61,8 +61,8 @@ positional arguments:
 optional arguments:
   -h, --help            show this help message and exit
   -atomlabel ATOMLABEL  name label for each basis atom type as used in xyz file; may be passed multiple times as required.
-						Place the flag -atomlabel before each entry.
-						Despite the flag, this is a REQUIRED (not optional) argument!
+Place the flag -atomlabel before each entry.
+Despite the flag, this is a REQUIRED (not optional) argument!
   -logfile LOGFILE      logfile to save to
   -LGF_jmin LGF_JMIN    (int) first atom index to compute LGF for. Default is the first atom in region 2.
   -LGF_jmax LGF_JMAX    (int) last atom index to compute LGF for. Default is the last atom in region 2.
@@ -95,14 +95,14 @@ positional arguments:
 optional arguments:
   -h, --help            show this help message and exit
   -atomlabel ATOMLABEL  name label for each basis atom type as used in xyz file; may be passed multiple times as required.
-						Place the flag -atomlabel before each entry.
-						Despite the flag, this is a REQUIRED (not optional) argument!
+Place the flag -atomlabel before each entry.
+Despite the flag, this is a REQUIRED (not optional) argument!
   -elementindex ELEMENTINDEX
                         element index (int) corresponding to each basis atom; may be passed multiple times as required.
-						There should be as many entries for this as there are atom labels, and passed in the same order.
-						Place the flag -elementindex before each entry.
-						Despite the flag, this is a REQUIRED (not optional) argument!
-						The elements must be numbered in the same order as in the POSCAR/POTCAR as this will be used to map atoms onto the DFT ordering.
+There should be as many entries for this as there are atom labels, and passed in the same order.
+Place the flag -elementindex before each entry.
+Despite the flag, this is a REQUIRED (not optional) argument!
+The elements must be numbered in the same order as in the POSCAR/POTCAR as this will be used to map atoms onto the DFT ordering.
 ```
 
 
