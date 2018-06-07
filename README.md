@@ -12,12 +12,6 @@ Before we get started, prepare the following files:
 - an input file that contains the crystal and dislocation setup info
 ```
 <crystal class label (int)> (refer to the documentation in elastic.py for the numbering system)
-<a1.x> <a1.y> <a1.z>
-<a2.x> <a2.y> <a2.z>
-<a3.x> <a3.y> <a3.z>
-<# basis atoms per unit cell>
-<basis atom coordinates in unit cell> (each basis atom is listed on a separate line)
-...
 <a0 (in Angstroms)>
 <Cijs (in GPa)>
 <m.x> <m.y> <m.z>

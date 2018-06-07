@@ -17,9 +17,6 @@ def readinputs(f):
     Returns
     -------    
     crystalclass: crystal class (0=isotropic; 1=cubic; 2=hexagonal)    
-    A           : 3x3 matrix for rotating from primitive cell basis to cartesian basis
-                  (columns are unitcell vectors a1,a2,a3)
-    unitcell_pos: positions of the basis atoms within the primitive unit cell
     a0          : lattice constant in angstroms
     Cijs        : list of Cijs
     
@@ -36,23 +33,23 @@ def readinputs(f):
     crystalclass = int(lines[0].split()[0])
 
     # a1,a2,a3
-    A = np.array([[float(lines[1].split()[0]),float(lines[1].split()[1]),float(lines[1].split()[2])],
-                  [float(lines[2].split()[0]),float(lines[2].split()[1]),float(lines[2].split()[2])],
-                  [float(lines[3].split()[0]),float(lines[3].split()[1]),float(lines[3].split()[2])]]).T
+#    A = np.array([[float(lines[1].split()[0]),float(lines[1].split()[1]),float(lines[1].split()[2])],
+#                  [float(lines[2].split()[0]),float(lines[2].split()[1]),float(lines[2].split()[2])],
+#                  [float(lines[3].split()[0]),float(lines[3].split()[1]),float(lines[3].split()[2])]]).T
                   
     # number of basis atoms
-    num_basis = int(lines[4].split()[0]) 
+#    num_basis = int(lines[4].split()[0]) 
 
     # basis atom positions in unit cell
-    unitcell_pos = []
-    for i in range(num_basis): 
-        unitcell_pos.append([float(lines[5+i].split()[0]),float(lines[5+i].split()[1]),float(lines[5+i].split()[2])])                 
+#    unitcell_pos = []
+#    for i in range(num_basis): 
+#        unitcell_pos.append([float(lines[5+i].split()[0]),float(lines[5+i].split()[1]),float(lines[5+i].split()[2])])                 
             
     # lattice constant (Angstroms)
     a0 = float(lines[-6].split()[0])
     
     # elastic constants (GPa)
-    Cijs = [float(lines[-5].split()[0]),float(lines[-5].split()[1]),float(lines[-5].split()[2])]
+    Cijs = [float(entry) for entry in lines[-5].split()]
                   
     # m,n,t
     m = np.array([float(lines[-4].split()[0]),float(lines[-4].split()[1]),float(lines[-4].split()[2])])
@@ -63,15 +60,6 @@ def readinputs(f):
     # t_mag
     t_mag = np.sqrt(float(lines[-1].split()[0]))
     
-    # m,n coordinates of centre of dislocation geometry 
-#    m_c = float(lines[-2].split()[0])
-#    n_c = float(lines[-2].split()[1])
     
-    # region 1,2,3 size info from DFT setup
-#    dftsize_1 = int(lines[-1].split()[0])
-#    dftsize_12 = int(lines[-1].split()[1])
-#    dftsize_123 = int(lines[-1].split()[2])
-    
-    return (crystalclass,A,unitcell_pos,a0,Cijs,M,t_mag)
-
+    return (crystalclass,a0,Cijs,M,t_mag)
                                     

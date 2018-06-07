@@ -217,7 +217,7 @@ def rotate_C(C,M):
 #    return np.fft.fft([EGF_xx,EGF_yy,EGF_zz,EGF_yz,EGF_xz,EGF_xy])/len(EGF)
 
     
-def Lambda2_kCk(k,C,M,V):      
+def Lambda2_kCk(k,C,M):      
    
     """    
     compute Lambda2(k) = V*[k.C.k]
@@ -228,7 +228,6 @@ def Lambda2_kCk(k,C,M,V):
     k : unit vector in the mn plane, expressed in mnt coords
     C : 3x3x3x3 stiffness tensor C in cartesian basis
     M : 3x3 matrix for rotating from mnt basis to cartesian basis
-    V : unit cell volume (Angstroms^3)
 
     Returns
     -------
@@ -237,12 +236,13 @@ def Lambda2_kCk(k,C,M,V):
     """
 
     k = np.dot(M,k)  ## convert k in the mn plane to cartesian coords
-    L2 = V * np.tensordot(k,np.tensordot(C,k,axes=([3],[0])),axes=([0],[0]))    
+    L2 = np.tensordot(k,np.tensordot(C,k,axes=([3],[0])),axes=([0],[0]))
+    ## I've ignored the V here as it will cancel out later... 
                             
     return L2
 
 
-def EGF_Fcoeffs(N,C,M,V):
+def EGF_Fcoeffs(N,C,M):
 
     """
     Calculates EGF(k) = inv(D(k)) = inv(Lambda2(k)),
@@ -253,7 +253,6 @@ def EGF_Fcoeffs(N,C,M,V):
     N  : number of k vectors to generate and compute EGF(k) for
     C  : 3x3x3x3 stiffness tensor C in cartesian basis
     M  : 3x3 matrix for rotating from mnt basis to cartesian basis
-    V  : unit cell volume (Angstroms^3)
 
     Returns
     -------
@@ -270,7 +269,7 @@ def EGF_Fcoeffs(N,C,M,V):
 
     ## generate list of k vectors that lie on m-n plane; angle is wrt +m axis    
     ## calculates Lambda2(k) = leading term in D(k), then inverts Lambda2(k) to get EGF(k)  
-    EGF = [la.inv(Lambda2_kCk(k,C,M,V)) 
+    EGF = [la.inv(Lambda2_kCk(k,C,M)) 
            for k in [[np.cos(2*np.pi*n/N),np.sin(2*np.pi*n/N),0] for n in range(N)]]
     
     ## create separate lists for each independent component of the 3x3 EGF matrices
@@ -321,7 +320,7 @@ def G_largeR_ang(GEn,N,N_max):
     return np.fft.ifft(ang_coeffs)*N
 
 
-def G_largeR(GEn,phi_R_grid,R,phi,N,a0,V,t_mag):
+def G_largeR(GEn,phi_R_grid,R,phi,N,a0,t_mag):
 
     """
     Calculates the real space large R LGF for given R, phi values.
@@ -337,7 +336,6 @@ def G_largeR(GEn,phi_R_grid,R,phi,N,a0,V,t_mag):
     N          : number of angular values for which the angular term in the real space large R LGF 
                  has been explicitly computed
     a0         : lattice constant in angstroms
-    V          : unit cell volume
     t_mag      : magnitude of the periodic vector along the dislocation threading direction
           
     Returns
@@ -360,7 +358,8 @@ def G_largeR(GEn,phi_R_grid,R,phi,N,a0,V,t_mag):
     logR = np.log(R)
     
     ## evaluate separately for each of the 6 independent components
-    G_largeR_comps = [((V/(2*np.pi*a0*t_mag)) * (-GEn_comp[0]*logR + 
+    ## I've ignored the V here as it cancels out the V in the Lambda(2) term
+    G_largeR_comps = [((1./(2*np.pi*a0*t_mag)) * (-GEn_comp[0]*logR + 
                       lever_lower*phi_R_grid_comp[upper%N] + lever_upper*phi_R_grid_comp[lower])) 
                       for GEn_comp,phi_R_grid_comp in zip(GEn,phi_R_grid)]
         

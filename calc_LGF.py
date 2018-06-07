@@ -6,7 +6,7 @@ import setup
 import IO_xyz
 
 
-def setBC(i,grid,size_in,size_all,GEn,phi_R_grid,N,a0,V,t_mag,f):
+def setBC(i,grid,size_in,size_all,GEn,phi_R_grid,N,a0,t_mag,f):
 
     """
     Use the large R LGF (= EGF) to displace atoms in the far-field boundary
@@ -26,7 +26,6 @@ def setBC(i,grid,size_in,size_all,GEn,phi_R_grid,N,a0,V,t_mag,f):
     N          : number of angular values for which the angular term in the real space large R LGF 
                  has been explicitly computed
     a0         : lattice constant in angstroms
-    V          : unit cell volume
     t_mag      : magnitude of the periodic vector along the dislocation threading direction
     f          : array of shape (size_in,3) for forces
           
@@ -51,7 +50,7 @@ def setBC(i,grid,size_in,size_all,GEn,phi_R_grid,N,a0,V,t_mag,f):
             phi = 0.                
         ## given R and phi, calculate G(large R limit) 
         ## and use it to get displacements u = - G.f
-        u_ff -= np.dot(elastic.G_largeR(GEn,phi_R_grid,R,phi,N,a0,V,t_mag),f[i]) 
+        u_ff -= np.dot(elastic.G_largeR(GEn,phi_R_grid,R,phi,N,a0,t_mag),f[i]) 
         
     return u
 
@@ -95,20 +94,16 @@ if __name__ == '__main__':
         
     ## read in setup details
     """
-    crystalclass: crystal class (0=isotropic; 1=cubic; 2=hexagonal)    
-    A           : 3x3 matrix for rotating from primitive cell basis to cartesian basis
-                  (columns are unitcell vectors a1,a2,a3)
-    unitcell_pos: positions of the basis atoms within the primitive unit cell
-    a0          : lattice constant in angstroms
-    Cijs        : list of Cijs
+    crystalclass: crystal class (4=cubic; 9=hexagonal; 10=isotropic)    
+    a0          : lattice constant (angstroms)
+    Cijs        : list of Cijs (GPa)
     M           : 3x3 matrix for rotating from mnt basis to cartesian basis
                   (columns are normalized m,n,t vectors)
     t_mag       : magnitude of the periodic vector along the dislocation threading direction
                   
     """
     with open(args.inputfile,'r') as f1:
-        crystalclass,A,unitcell_pos,a0,Cijs,M,t_mag = setup.readinputs(f1)
-    V = a0**3 * np.dot(A[:,0],np.cross(A[:,1],A[:,2])) ## unit cell volume (Angstroms^3)
+        crystalclass,a0,Cijs,M,t_mag = setup.readinputs(f1)
     
     ## read in grid of atoms
     """
@@ -136,7 +131,7 @@ if __name__ == '__main__':
     ## assemble the pieces necessary to evaluate the large R LGF, i.e. EGF
     ## based on the expression found in D.R. Trinkle, Phys. Rev. B 78, 014110 (2008)
     N = 256
-    GEn = elastic.EGF_Fcoeffs(N,C,M,V)
+    GEn = elastic.EGF_Fcoeffs(N,C,M)
     phi_R_grid = elastic.G_largeR_ang(GEn,N,N_max=int(N/2))
 
     ## compute the LGF matrix
@@ -159,7 +154,7 @@ if __name__ == '__main__':
             f[j*3+d] = 1
 
             ## displace atoms in far-field boundary according to u_bc = -EGF.f(II)
-            u_bc = setBC(j,grid,size_in,size_all,GEn,phi_R_grid,N,a0,V,t_mag,np.reshape(f,(size_in,3)))
+            u_bc = setBC(j,grid,size_in,size_all,GEn,phi_R_grid,N,a0,t_mag,np.reshape(f,(size_in,3)))
             
             ## add the "correction forces" out in the buffer region
             ## f_eff = f(II) - (-D.(-EGF.f(II)) = f(II) + D.u_bc
