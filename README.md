@@ -99,10 +99,10 @@ Place the flag -atomlabel before each entry.
 Despite the flag, this is a REQUIRED (not optional) argument!
   -elementindex ELEMENTINDEX
                         element index (int) corresponding to each basis atom; may be passed multiple times as required.
-There should be as many entries for this as there are atom labels, and passed in the same order.
-Place the flag -elementindex before each entry.
-Despite the flag, this is a REQUIRED (not optional) argument!
-The elements must be numbered in the same order as in the POSCAR/POTCAR as this will be used to map atoms onto the DFT ordering.
+						There should be as many entries for this as there are atom labels, and passed in the same order.
+	Place the flag -elementindex before each entry.
+		Despite the flag, this is a REQUIRED (not optional) argument!
+			The elements must be numbered in the same order as in the POSCAR/POTCAR as this will be used to map atoms onto the DFT ordering.
 ```
 
 
