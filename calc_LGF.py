@@ -86,11 +86,13 @@ if __name__ == '__main__':
     
     ## set up logging
     if args.logfile:
-        logging.basicConfig(filename=args.logfile,filemode='w',format='%(levelname)s:%(message)s', level=logging.DEBUG)
-    console = logging.StreamHandler()
-    console.setLevel(logging.INFO)
-    console.setFormatter(logging.Formatter('%(levelname)s:%(message)s'))
-    logging.getLogger('').addHandler(console)
+        logging.basicConfig(filename=args.logfile,filemode='w',format='%(levelname)s:%(message)s', level=logging.DEBUG)    
+        console = logging.StreamHandler()
+        console.setLevel(logging.INFO)
+        console.setFormatter(logging.Formatter('%(levelname)s:%(message)s'))
+        logging.getLogger('').addHandler(console)
+    else:
+        logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.INFO)
         
     ## read in setup details
     """
@@ -118,7 +120,7 @@ if __name__ == '__main__':
     logging.info('System setup: size_1 = %d, size_12 = %d, size_123 = %d, size_in = %d, size_all = %d'
                   %(size_1,size_12,size_123,size_in,size_all))
 
-    t0 = time.time()   
+    t0 = time.time()
 
     ## load the big D matrix from file
     logging.info('loading D...')
