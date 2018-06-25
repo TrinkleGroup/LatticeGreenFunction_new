@@ -58,22 +58,22 @@ if __name__ == '__main__':
                         'Place the flag -atomlabel before each entry. '
                         'Despite the flag, this is a REQUIRED (not optional) argument!')
     parser.add_argument('cutoff',
-                        help='cutoff distance for forces and force-constants(Angstroms)')
+                        help='cutoff distance for forces and force-constants (Angstroms)')
     parser.add_argument('Dfile',
                         help='.mtx file to save the FC matrix D to')
     parser.add_argument('-logfile',
                         help='logfile to save to')
     parser.add_argument('-finitediff',
-                        help='finite difference method to use (forward/central).'
+                        help='finite difference method to use (forward/central). '
                         'Default is forward difference.')
     parser.add_argument('-disp',
-                        help='magnitude of displacements to apply.'
+                        help='magnitude of displacements to apply. '
                         'Default is 1E-05 Angstroms.')
     parser.add_argument('-istart',type=int,
-                        help='(int) first atom index to displace.'
+                        help='(int) first atom index to displace. '
                         'Default is the first atom in region 1.')
     parser.add_argument('-iend',type=int,
-                        help='(int) last atom index to displace.'
+                        help='(int) last atom index to displace. '
                         'Default is the last atom in the buffer.')
 
       
@@ -170,13 +170,14 @@ if __name__ == '__main__':
                 if fwddiff == 0:
                     ## use central differences
                     forcej_dneg = np.array([force_dmneg[j],force_dnneg[j],force_dtneg[j]]).T
-                    Dij_mnt = -(forcej_dpos-forcej_dneg)/(2*disp)  
+                    D_mnt = -(forcej_dpos-forcej_dneg)/(2*disp)  
                 if fwddiff == 1:
                     ## use forward differences
                     forcej_nodisp = np.array([force_nodisp[j],force_nodisp[j],force_nodisp[j]]).T
-                    Dij_mnt = -(forcej_dpos-forcej_nodisp)/disp  
+                    D_mnt = -(forcej_dpos-forcej_nodisp)/disp  
         
-                D[i*3:(i+1)*3,j*3:(j+1)*3] = np.dot(M,np.dot(Dij_mnt,M.T)) ## rotate from mnt to xyz cart coords
+                D[i*3:(i+1)*3,j*3:(j+1)*3] = np.dot(M,np.dot(D_mnt,M.T)) ## rotate from mnt to xyz cart coords
+#                D[i*3:(i+1)*3,j*3:(j+1)*3] = np.dot(M,np.dot(D_mnt.T,M.T)) ## rotate from mnt to xyz cart coords
             
     scipy.io.mmwrite(args.Dfile, D)
 
