@@ -34,6 +34,37 @@ There are a few ways to do this -- either by approximating the dislocation FCs b
 
 [more to come in this section...]
 
+The script `calc_D_direct.py` evaluates the dislocation FCs directly in the dislocation geometry using an empirical potential in LAMMPS. This script calls LAMMPS directly, so you will need to first set up the python--LAMMPS interface following the instructions [here](http://lammps.sandia.gov/doc/Section_python.html).
+
+NOTE! Currently, the user is required to manually edit the `pair_style` and `pair_coeff` lines in the `calcforces_lammps` function in the script based on the potential being used. [In the future, I should probably change this into some sort of input to the script...]
+```
+usage: calc_D_direct.py [-h] -atomlabel ATOMLABEL [-logfile LOGFILE]
+                        [-finitediff FINITEDIFF] [-disp DISP] [-istart ISTART]
+                        [-iend IEND]
+                        inputfile atomxyzfile cutoff Dfile
+
+Directly evaluates dislocation force-constants using empirical potential.
+
+positional arguments:
+  inputfile             input file that contains the crystal and dislocation setup info
+  atomxyzfile           xyz file that contains the atom positions
+  cutoff                cutoff distance for forces and force-constants (Angstroms)
+  Dfile                 .mtx file to save the FC matrix D to
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -atomlabel ATOMLABEL  name label for each basis atom type as used in xyz file; may be passed multiple times as required.
+			Place the flag -atomlabel before each entry.
+			Despite the flag, this is a REQUIRED (not optional) argument!
+  -logfile LOGFILE      logfile to save to
+  -finitediff FINITEDIFF
+                        finite difference method to use (forward/central). Default is forward difference.
+  -disp DISP            magnitude of displacements to apply. Default is 1E-05 Angstroms.
+  -istart ISTART        (int) first atom index to displace. Default is the first atom in region 1.
+  -iend IEND            (int) last atom index to displace. Default is the last atom in the buffer.
+```
+The optional arguments -istart and -iend can be used to help parallalize this calculation (which may be necessary if you're using a more computationally expensive potential such as GAP), so that multiple jobs can be run concurrently with each looping over different subsets of atom indices. At tne end, you simply combine the force-constant matrices by adding them up.
+
 ## 2. Evaluating the lattice Green function
 
 Now that we have the dislocation force-constant matrix, we can go ahead and compute the LGF! :tada:
@@ -61,6 +92,7 @@ optional arguments:
   -LGF_jmin LGF_JMIN    (int) first atom index to compute LGF for. Default is the first atom in region 2.
   -LGF_jmax LGF_JMAX    (int) last atom index to compute LGF for. Default is the last atom in region 2.
 ```
+The optional arguments -LGF_jmin and -LGF_jmax can be used to help parallalize this calculation, so that multiple jobs can be run concurrently with each looping over different subsets of atom indices. At tne end, you simply stack the LGF matrices column-wise.
 
 Note that the current version of this code calls functions from `elastic.py` to evaluate the far-field displacements according to the bulk elastic Green function. If you require other boundary conditions, e.g. elastic Green function for a bicrystal, you will have to code those up yourself and call them within `calc_LGF.py` at the part where we set the displacement of atoms in the far-field boundary.
 
