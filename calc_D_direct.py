@@ -165,7 +165,7 @@ if __name__ == '__main__':
             force_dtneg = calcforces_lammps(datafilename,i,[0.,0.,-disp],size_all)
         
         for j in range(size_all):
-            if ((np.linalg.norm(np.array(grid[j][2:5])-np.array(grid[i][2:5])))**2) <= args.cutoff/a0:
+            if np.linalg.norm(np.array(grid[j][2:5])-np.array(grid[i][2:5])) <= args.cutoff/a0:
                 ## don't store force-constants outside interaction range which are zero
                 forcej_dpos = np.array([force_dmpos[j],force_dnpos[j],force_dtpos[j]]).T
                 if fwddiff == 0:
