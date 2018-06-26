@@ -58,17 +58,17 @@ if __name__ == '__main__':
                         'may be passed multiple times as required. '
                         'Place the flag -atomlabel before each entry. '
                         'Despite the flag, this is a REQUIRED (not optional) argument!')
-    parser.add_argument('cutoff',
-                        help='cutoff distance for forces and force-constants (Angstroms)')
     parser.add_argument('Dfile',
                         help='.mtx file to save the FC matrix D to')
+    parser.add_argument('cutoff',type=float,
+                        help='(float) cutoff distance for forces and force-constants (Angstroms)')
     parser.add_argument('-logfile',
                         help='logfile to save to')
     parser.add_argument('-finitediff',
                         help='finite difference method to use (forward/central). '
                         'Default is forward difference.')
-    parser.add_argument('-disp',
-                        help='magnitude of displacements to apply. '
+    parser.add_argument('-disp',type=float,
+                        help='(float) magnitude of displacements to apply. '
                         'Default is 1E-05 Angstroms.')
     parser.add_argument('-istart',type=int,
                         help='(int) first atom index to displace. '
