@@ -6,7 +6,7 @@ import IO_xyz
 import IO_lammps
     
 
-def calcforces_lammps(datafilename,i,disp):
+def calcforces_lammps(datafilename,i,disp,size_all):
     
     """
     Call lammps to compute the forces in response to a displaced atom i
@@ -16,6 +16,7 @@ def calcforces_lammps(datafilename,i,disp):
     datafilename : data file from which lammps reads the atomic position data from (dislocation geometry)
     i : atom index of the atom to be displaced (0-based index)
     disp : displacement vector
+    size_all : number of atoms in the system
     
     Returns
     -------
@@ -37,9 +38,9 @@ def calcforces_lammps(datafilename,i,disp):
     
     ## extract the forces   
     output = lmp.extract_compute("output",1,2)
-    forces = np.zeros((len(output),3))
-    for atom in output:
-        forces[int(atom[0]-1)] = atom[2:5]
+    forces = np.zeros((size_all,3))
+    for i in range (size_all):
+        forces[int(output[i][0]-1)] = output[i][2:5]
         
     return forces
 
@@ -146,22 +147,22 @@ if __name__ == '__main__':
         disp = 1E-05
 
     if fwddiff == 1:  
-        force_nodisp = calcforces_lammps(datafilename,0,[0.,0.,0.])
+        force_nodisp = calcforces_lammps(datafilename,0,[0.,0.,0.],size_all)
   
     D = scipy.sparse.lil_matrix((size_in*3,size_all*3)) 
     for i in range(istart,iend+1):
         logging.info('displacing atom %d'%i)
       
         ## displace atom in positive m,n,t directions
-        force_dmpos = calcforces_lammps(datafilename,i,[disp,0.,0.])
-        force_dnpos = calcforces_lammps(datafilename,i,[0.,disp,0.])
-        force_dtpos = calcforces_lammps(datafilename,i,[0.,0.,disp])
+        force_dmpos = calcforces_lammps(datafilename,i,[disp,0.,0.],size_all)
+        force_dnpos = calcforces_lammps(datafilename,i,[0.,disp,0.],size_all)
+        force_dtpos = calcforces_lammps(datafilename,i,[0.,0.,disp],size_all)
 
         if fwddiff == 0: 
         ## displace atom in negative m,n,t directions
-            force_dmneg = calcforces_lammps(datafilename,i,[-disp,0.,0.])
-            force_dnneg = calcforces_lammps(datafilename,i,[0.,-disp,0.])
-            force_dtneg = calcforces_lammps(datafilename,i,[0.,0.,-disp])
+            force_dmneg = calcforces_lammps(datafilename,i,[-disp,0.,0.],size_all)
+            force_dnneg = calcforces_lammps(datafilename,i,[0.,-disp,0.],size_all)
+            force_dtneg = calcforces_lammps(datafilename,i,[0.,0.,-disp],size_all)
         
         for j in range(size_all):
             if ((np.linalg.norm(np.array(grid[j][2:5])-np.array(grid[i][2:5])))**2) <= args.cutoff/a0:
