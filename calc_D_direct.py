@@ -75,9 +75,9 @@ if __name__ == '__main__':
                         'Default is the first atom in region 1.')
     parser.add_argument('-iend',type=int,
                         help='(int) last atom index to displace. '
-                        'Default is the last atom in the buffer.')
-
-      
+                        'Default is the last atom in the buffer. ' 
+                        'Note! Atom indices are based on 0-based indexing.')
+     
     ## read in arguments from the command line
     args = parser.parse_args()
     

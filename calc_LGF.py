@@ -79,7 +79,8 @@ if __name__ == '__main__':
                         'Default is the first atom in region 2.')
     parser.add_argument('-LGF_jmax',type=int,
                         help='(int) last atom index to compute LGF for. '
-                        'Default is the last atom in region 2.')
+                        'Default is the last atom in region 2. '
+                        'Note! Atom indices are based on 0-based indexing.')
        
     ## read in the above arguments from command line
     args = parser.parse_args()   

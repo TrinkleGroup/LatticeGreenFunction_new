@@ -41,15 +41,15 @@ NOTE! Currently, the user is required to manually edit the `pair_style` and `pai
 usage: calc_D_direct.py [-h] -atomlabel ATOMLABEL [-logfile LOGFILE]
                         [-finitediff FINITEDIFF] [-disp DISP] [-istart ISTART]
                         [-iend IEND]
-                        inputfile atomxyzfile cutoff Dfile
+                        inputfile atomxyzfile Dfile cutoff
 
 Directly evaluates dislocation force-constants using empirical potential.
 
 positional arguments:
   inputfile             input file that contains the crystal and dislocation setup info
   atomxyzfile           xyz file that contains the atom positions
-  cutoff                cutoff distance for forces and force-constants (Angstroms)
   Dfile                 .mtx file to save the FC matrix D to
+  cutoff                (float) cutoff distance for forces and force-constants (Angstroms)
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -59,9 +59,10 @@ optional arguments:
   -logfile LOGFILE      logfile to save to
   -finitediff FINITEDIFF
                         finite difference method to use (forward/central). Default is forward difference.
-  -disp DISP            magnitude of displacements to apply. Default is 1E-05 Angstroms.
+  -disp DISP            (float) magnitude of displacements to apply. Default is 1E-05 Angstroms.
   -istart ISTART        (int) first atom index to displace. Default is the first atom in region 1.
   -iend IEND            (int) last atom index to displace. Default is the last atom in the buffer.
+			Note! Atom indices are based on 0-based indexing.						
 ```
 The optional arguments -istart and -iend can be used to parallalize this calculation (which may be necessary if you're using a more computationally expensive potential such as GAP), so that multiple jobs can be run concurrently with each looping over different subsets of atom indices. At the end, you simply combine the force-constant matrices by adding them up.
 
@@ -91,6 +92,7 @@ optional arguments:
   -logfile LOGFILE      logfile to save to
   -LGF_jmin LGF_JMIN    (int) first atom index to compute LGF for. Default is the first atom in region 2.
   -LGF_jmax LGF_JMAX    (int) last atom index to compute LGF for. Default is the last atom in region 2.
+  			Note! Atom indices are based on 0-based indexing.
 ```
 The optional arguments -LGF_jmin and -LGF_jmax can be used to parallalize this calculation, so that multiple jobs can be run concurrently with each looping over different subsets of atom indices. At the end, you simply stack the LGF matrices column-wise.
 
