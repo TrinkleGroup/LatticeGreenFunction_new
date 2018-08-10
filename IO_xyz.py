@@ -107,4 +107,39 @@ def grid_to_xyz(grid,atomtypes,a0,header):
                 atomtype=atomtypes[atom[5]],mcoord=a0*atom[2],ncoord=a0*atom[3],tcoord=a0*atom[4])
     
     return s
+ 
+ 
+def grid_to_xyz_reg(grid,sizes,atomtypes,a0):
+
+    """
+    Create a string that will be written to a xyz file. 
+    The atoms in the xyz file are listed in order by regions and 
+    the second line of the file contains the size_1,size_12,size_123,size_in info.
     
+    Parameters
+    ---------- 
+    grid : list of [atom index,region,m-coord,n-coord,t-coord,basis]
+           for each atom in the geometry
+           ** coordinates are scaled out by a factor of a0 !!
+    sizes : list of [size_1,size_12,size_123,size_in]
+    atomtypes: list of name labels for each basis atom type
+    a0 : lattice constant in Angstroms
+
+    Returns
+    -------
+    s    : string containing the data for the xyz file
+    
+    """  
+    
+    [size_1,size_12,size_123,size_in] = sizes
+    
+    s = "{numatoms}\n".format(numatoms=len(grid))
+    s += "{size_1} {size_12} {size_123} {size_in}\n".format(size_1=size_1,size_12=size_12,
+                                                            size_123=size_123,size_in=size_in) 
+    for atom in grid:
+        # print atom index, mnt coords
+        s += "{atomtype} {mcoord:20.15f} {ncoord:20.15f} {tcoord:20.15f}\n".format(
+                atomtype=atomtypes[atom[5]],mcoord=a0*atom[2],ncoord=a0*atom[3],tcoord=a0*atom[4])
+    
+    return s
+	
