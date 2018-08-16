@@ -6,6 +6,8 @@ import setup
 import IO_xyz
 import IO_lammps
 
+PAIR_STYLE = "pair_style	eam/fs"
+PAIR_COEFF = "pair_coeff	* * ../Fe_2.eam.fs Fe Fe Fe"
 
 #def lammps_minimize(datafilename,maxcgiter,ftol):
 #
@@ -29,8 +31,8 @@ import IO_lammps
 #    lmp.command("boundary	f f p")
 #    lmp.command("atom_style	atomic")
 #    lmp.command("read_data	%s"%datafilename)
-#    lmp.command("pair_style	eam/fs")
-#    lmp.command("pair_coeff	* * ../Fe_2.eam.fs Fe Fe Fe")
+#    lmp.command(PAIR_STYLE)
+#    lmp.command(PAIR_COEFF)
 #    lmp.command("group 	reg23 type 2 3")
 #    lmp.command("fix		1 reg23 setforce 0.0 0.0 0.0")
 #    lmp.command("min_style	cg")
@@ -73,8 +75,8 @@ def lammps_minimize_getforces(datafilename,maxcgiter,ftol):
     lmp.command("read_data	%s"%datafilename)    
     ## I'm sorry the pair_style and pair_coeff is currently hardcoded in!
     ## you will have to manually change it for your system of interest
-    lmp.command("pair_style	eam/fs")
-    lmp.command("pair_coeff	* * ../Fe_2.eam.fs Fe Fe Fe")
+    lmp.command(PAIR_STYLE)
+    lmp.command(PAIR_COEFF)
     
     ## relax reg 1, keeping reg 2+3 fixed  
     lmp.command("group 	reg23 type 2 3")
@@ -126,8 +128,8 @@ def lammps_getforces(datafilename):
     lmp.command("read_data	%s"%datafilename)
     ## I'm sorry the pair_style and pair_coeff is currently hardcoded in!
     ## you will have to manually change it for your system of interest
-    lmp.command("pair_style	eam/fs")
-    lmp.command("pair_coeff	* * ../Fe_2.eam.fs Fe Fe Fe")
+    lmp.command(PAIR_STYLE)
+    lmp.command(PAIR_COEFF)
     
     ## compute reg 1+2 forces 
     lmp.command("group       reg3 type 3")
@@ -165,8 +167,8 @@ def lammps_getforces(datafilename):
 #    lmp.command("boundary	f f p")
 #    lmp.command("atom_style	atomic")
 #    lmp.command("read_data	%s"%datafilename)
-#    lmp.command("pair_style	eam/fs")
-#    lmp.command("pair_coeff	* * ../Fe_2.eam.fs Fe Fe Fe")
+#    lmp.command(PAIR_STYLE)
+#    lmp.command(PAIR_COEFF)
 #    lmp.command("group       reg12 type 1 2")
 #    lmp.command("compute 	output all pe")
 #    lmp.command("run 		0")

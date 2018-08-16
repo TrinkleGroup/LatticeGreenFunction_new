@@ -126,7 +126,7 @@ Atoms
     
     for atom in grid:
         ## write out atom index, mnt coords
-        s += "{index:<8d} {region} {mcoord:24.16f} {ncoord:24.16f} {tcoord:24.16f}\n".format(index=int(atom.ind+1),
-                atomtype=int(atom.reg),mcoord=atom.m*a0,ncoord=atom.n*a0,tcoord=atom.t*a0)
+        s += "{index:<8d} {atomtype} {mcoord:24.16f} {ncoord:24.16f} {tcoord:24.16f}\n".format(index=atom.ind+1,
+                atomtype=atom.reg,mcoord=atom.m*a0,ncoord=atom.n*a0,tcoord=atom.t*a0)
 
     return s
