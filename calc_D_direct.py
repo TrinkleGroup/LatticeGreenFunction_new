@@ -139,7 +139,7 @@ if __name__ == '__main__':
     if args.iend: 
         iend = args.iend
     else: 
-        iend = size_in  ## if iend not specified, default = size_in (all atoms up to buffer)        
+        iend = size_in-1  ## if iend not specified, default = size_in-1 (all atoms up to buffer)        
  
     if args.disp:
         disp = args.disp  ## the magnitude of displacement to apply on each atom
