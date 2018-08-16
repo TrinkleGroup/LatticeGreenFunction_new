@@ -216,7 +216,7 @@ if __name__ == '__main__':
     with open(datafilename, 'w') as f:
         ## I just modified the function to label the atoms by region instead of basis atom type
         ## but I haven't checked it, so be careful!
-        f.write(IO_lammps.lammps_writedatafile_reg(grid[:size_123],1.,t_mag))
+        f.write(IO_lammps.lammps_writedatafile_reg(grid[:size_123],1.,t_mag*a0))
                 
     ## Load G matrix computed by calc_LGF.py
     G = np.load(args.Gfile)
@@ -258,7 +258,7 @@ if __name__ == '__main__':
     ## carry out relaxation until force tolerance level or max. # iterations is reached
     ## you should double check the force criteria, whether comparing force 2-norm or max. force...
     with open('initial-dislocation.data', 'w') as f:
-        f.write(IO_lammps.lammps_writedatafile_reg(grid,1.,t_mag))
+        f.write(IO_lammps.lammps_writedatafile_reg(grid,1.,t_mag*a0))
     force_evolution = []
     for i in range(args.maxiter):        
         force_2norm = np.linalg.norm(forces_12)
@@ -279,7 +279,7 @@ if __name__ == '__main__':
             ## since the atom coords in the new grid are in Angstroms (not scaled out by a0)
             ## pass a dummy a0=1.0 to the lammps_writedatafile_reg function
             with open(datafilename, 'w') as f:
-                f.write(IO_lammps.lammps_writedatafile_reg(grid_new,1.,t_mag))
+                f.write(IO_lammps.lammps_writedatafile_reg(grid_new,1.,t_mag*a0))
             ## call LAMMPS again to compute forces in reg 1+2 after LGF update
             forces_new = lammps_getforces(datafilename)
             forces_12 = np.reshape(forces_new[:size_12],(3*size_12,1))
