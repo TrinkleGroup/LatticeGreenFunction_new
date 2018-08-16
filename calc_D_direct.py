@@ -4,7 +4,23 @@ from lammps import lammps
 import setup
 import IO_xyz
 import IO_lammps
-    
+
+PAIR_STYLE = "pair_style	eam/fs"
+PAIR_COEFF = "pair_coeff	* * ./w_eam4.fs W"
+# PAIR_STYLE = "pair_style     quip"
+# PAIR_COEFF = "pair_coeff     * * gp33b.xml 'Potential xml_label=GAP_2016_10_3_60_19_29_10_891' 26"
+
+def init_lammps(lmp, datafilename):
+    """
+    Initialize our LAMMPS object in a sane way
+    """
+    lmp.command('units		metal')
+    lmp.command('atom_style	atomic')
+    lmp.command('atom_modify map array sort 0 0')  # forces LAMMPS to output in sorted order
+    lmp.command('boundary	f f p')
+    lmp.command('read_data	{}'.format(datafilename))
+    lmp.command(PAIR_STYLE)
+    lmp.command(PAIR_COEFF)
 
 def calcforces_lammps(datafilename,i,disp,size_all):
     
@@ -25,24 +41,20 @@ def calcforces_lammps(datafilename,i,disp,size_all):
     """
     
     lmp = lammps()
-    lmp.command("units          metal")
-    lmp.command("boundary       f f p")
-    lmp.command("atom_style     atomic")
-    lmp.command("read_data      %s"%datafilename)
+    init_lammps(lmp, datafilename)
     lmp.command("group          testatom id %d"%(i+1))
     lmp.command("displace_atoms testatom move %0.12f %0.12f %0.12f"%(disp[0],disp[1],disp[2]))
-    lmp.command("pair_style     quip")  ## user needs to edit this and the next line specifically for the potential 
-    lmp.command("pair_coeff     * * gp33b.xml 'Potential xml_label=GAP_2016_10_3_60_19_29_10_891' 26")
     lmp.command("compute        output all property/atom id type fx fy fz")
     lmp.command("run            0")
     
     ## extract the forces   
     output = lmp.extract_compute("output",1,2)
-    forces = np.zeros((size_all,3))
-    for i in range (size_all):
-        forces[int(output[i][0]-1)] = output[i][2:5]
-        
-    return forces
+    return np.array([output[i][2:5] for i in range(size_all)])
+
+    # forces = np.zeros((size_all,3))
+    # for i in range(size_all):
+    #     forces[i] = output[i][2:5]
+    # return forces
 
 
 if __name__ == '__main__':
@@ -101,8 +113,8 @@ if __name__ == '__main__':
     t_mag       : magnitude of the periodic vector along the dislocation threading direction
                   
     """
-    with open(args.inputfile,'r') as f1:
-        crystalclass,a0,Cijs,M,t_mag = setup.readinputs(f1)
+    with open(args.inputfile,'r') as f:
+        crystalclass,a0,Cijs,M,t_mag = setup.readinputs(f)
     
     ## read in grid of atoms
     """
@@ -111,8 +123,8 @@ if __name__ == '__main__':
     size_1,size_12,size_123,size_in,size_all: cumulative # atoms in each of the regions
     
     """
-    with open(args.atomxyzfile,'r') as f2:
-        grid,[size_1,size_12,size_123,size_in] = IO_xyz.grid_from_xyz_reg(f2.read(),args.atomlabel,a0)
+    with open(args.atomxyzfile,'r') as f:
+        grid, (size_1,size_12,size_123,size_in) = IO_xyz.grid_from_xyz_reg(f.read(),args.atomlabel,1.)
     size_all = len(grid)
     logging.info('System setup: size_1 = %d, size_12 = %d, size_123 = %d, size_in = %d, size_all = %d'
                   %(size_1,size_12,size_123,size_in,size_all))
@@ -120,7 +132,7 @@ if __name__ == '__main__':
     ## write lammps .data file of dislocation geometry
     datafilename = 'disl.data'
     with open(datafilename, 'w') as f:
-        f.write(IO_lammps.lammps_writedatafile(grid,a0,t_mag))
+        f.write(IO_lammps.lammps_writedatafile(grid,1.,t_mag*a0))
 
     fwddiff = 1
     if args.finitediff:
@@ -181,5 +193,3 @@ if __name__ == '__main__':
 #                D[i*3:(i+1)*3,j*3:(j+1)*3] = np.dot(M,np.dot(D_mnt.T,M.T)) ## rotate from mnt to xyz cart coords
             
     scipy.io.mmwrite(args.Dfile, D)
-
-   
