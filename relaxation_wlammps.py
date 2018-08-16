@@ -1,49 +1,50 @@
 import numpy as np
 from lammps import lammps
+from collections import namedtuple
 import argparse
 import setup
 import IO_xyz
 import IO_lammps
 
 
-def lammps_minimize(datafilename,maxcgiter,ftol):
-
-    """
-    Call lammps to relax region 1 
-
-    Parameters
-    ----------
-    datafilename : filename for lammps to read the atomic position data from
-    maxcgiter    : maximum iterations stopping criteria for cg
-    ftol         : force tolerance stopping criteria for cg
-    
-    Returns
-    -------
-    grid : (size_123,5) np array of the index,type(region),m,n,t coords of each atom
-       
-    """
-    
-    lmp = lammps()
-    lmp.command("units		metal")
-    lmp.command("boundary	f f p")
-    lmp.command("atom_style	atomic")
-    lmp.command("read_data	%s"%datafilename)
-    lmp.command("pair_style	eam/fs")
-    lmp.command("pair_coeff	* * ../Fe_2.eam.fs Fe Fe Fe")
-    lmp.command("group 	reg23 type 2 3")
-    lmp.command("fix		1 reg23 setforce 0.0 0.0 0.0")
-    lmp.command("min_style	cg")
-    lmp.command("minimize	0.0 %0.16f %d 10000"%(ftol,maxcgiter))
-    lmp.command("compute 	output all property/atom id type x y z")
-    lmp.command("run 		0")
-    
-    ## extract the atom positions after region 1 LAMMPS relaxation    
-    output = lmp.extract_compute("output",1,2)
-    grid = np.zeros((size_123,5))
-    for i in range (size_123):
-        grid[output[i][0]-1] = output[i][0:5] 
-        
-    return grid
+#def lammps_minimize(datafilename,maxcgiter,ftol):
+#
+#    """
+#    Call lammps to relax region 1 
+#
+#    Parameters
+#    ----------
+#    datafilename : filename for lammps to read the atomic position data from
+#    maxcgiter    : maximum iterations stopping criteria for cg
+#    ftol         : force tolerance stopping criteria for cg
+#    
+#    Returns
+#    -------
+#    grid : (size_123,5) np array of the index,type(region),m,n,t coords of each atom
+#       
+#    """
+#    
+#    lmp = lammps()
+#    lmp.command("units		metal")
+#    lmp.command("boundary	f f p")
+#    lmp.command("atom_style	atomic")
+#    lmp.command("read_data	%s"%datafilename)
+#    lmp.command("pair_style	eam/fs")
+#    lmp.command("pair_coeff	* * ../Fe_2.eam.fs Fe Fe Fe")
+#    lmp.command("group 	reg23 type 2 3")
+#    lmp.command("fix		1 reg23 setforce 0.0 0.0 0.0")
+#    lmp.command("min_style	cg")
+#    lmp.command("minimize	0.0 %0.16f %d 10000"%(ftol,maxcgiter))
+#    lmp.command("compute 	output all property/atom id type x y z")
+#    lmp.command("run 		0")
+#    
+#    ## extract the atom positions after region 1 LAMMPS relaxation    
+#    output = lmp.extract_compute("output",1,2)
+#    grid = np.zeros((size_123,5))
+#    for i in range (size_123):
+#        grid[output[i][0]-1] = output[i][0:5] 
+#        
+#    return grid
     
     
 def lammps_minimize_getforces(datafilename,maxcgiter,ftol):
@@ -59,11 +60,11 @@ def lammps_minimize_getforces(datafilename,maxcgiter,ftol):
     
     Returns
     -------
-    grid   : (size_123,5) np array of the index,type(region),m,n,t coords of each atom
-    forces : (size_123,3) np array of the forces on each atom
-             The forces on atoms in regions 3 are just left as 0 as I am not interested in them...
+    grid : (size_123,5) ndarray of the index,type(region),m,n,t coords of each atom
+           * the coords have not been scaled out by a0 here!
+    forces : (size_123,3) ndarray of the forces on each atom
        
-    """
+    """ 
     
     lmp = lammps()
     lmp.command("units		metal")
@@ -88,11 +89,12 @@ def lammps_minimize_getforces(datafilename,maxcgiter,ftol):
     lmp.command("compute 	output all property/atom id type x y z fx fy fz")
     lmp.command("run 		0")
     
-    ## extract the atom positions after region 1 LAMMPS relaxation    
     output = lmp.extract_compute("output",1,2)
-    grid = np.zeros((size_123,5))
+    
+    ## extract the atom positions after region 1 LAMMPS relaxation        
+    grid_temp = np.zeros((size_123,5))
     for i in range (size_123):
-        grid[output[i][0]-1] = output[i][0:5] 
+        grid_temp[output[i][0]-1] = output[i][0:5]
         
     ## extract the atom forces after region 1 LAMMPS relaxation    
     forces = np.zeros((size_123,3))
@@ -113,8 +115,7 @@ def lammps_getforces(datafilename):
     
     Returns
     -------
-    forces : (size_123,3) np array of the forces on each atom.
-             The forces on atoms in region 3 are just left as 0 as I am not interested in them...
+    forces : (size_123,3) nd array of the forces on each atom.
     
     """
     
@@ -134,8 +135,9 @@ def lammps_getforces(datafilename):
     lmp.command("compute 	output all property/atom id type fx fy fz")
     lmp.command("run 		0")
     
-    ## extract the forces   
     output = lmp.extract_compute("output",1,2)
+    
+    ## extract the forces   
     forces = np.zeros((size_123,3))
     for i in range (size_123):
         forces[output[i][0]-1] = output[i][2:5]
@@ -143,36 +145,36 @@ def lammps_getforces(datafilename):
     return forces
     
     
-def lammps_getenergy(datafilename):
-    
-    """
-    Call lammps to compute the energy in regions 1 & 2 
-
-    Parameters
-    ----------
-    datafilename : filename for lammps to read the atomic position data from
-    
-    Returns
-    -------
-    energy : total potential energy of all atoms in regions 1 & 2
-    
-    """
-    
-    lmp = lammps()
-    lmp.command("units		metal")
-    lmp.command("boundary	f f p")
-    lmp.command("atom_style	atomic")
-    lmp.command("read_data	%s"%datafilename)
-    lmp.command("pair_style	eam/fs")
-    lmp.command("pair_coeff	* * ../Fe_2.eam.fs Fe Fe Fe")
-    lmp.command("group       reg12 type 1 2")
-    lmp.command("compute 	output all pe")
-    lmp.command("run 		0")
-    
-    ## extract the energy 
-    energy = lmp.extract_compute("output",0,0)
-        
-    return energy
+#def lammps_getenergy(datafilename):
+#    
+#    """
+#    Call lammps to compute the energy in regions 1 & 2 
+#
+#    Parameters
+#    ----------
+#    datafilename : filename for lammps to read the atomic position data from
+#    
+#    Returns
+#    -------
+#    energy : total potential energy of all atoms in regions 1 & 2
+#    
+#    """
+#    
+#    lmp = lammps()
+#    lmp.command("units		metal")
+#    lmp.command("boundary	f f p")
+#    lmp.command("atom_style	atomic")
+#    lmp.command("read_data	%s"%datafilename)
+#    lmp.command("pair_style	eam/fs")
+#    lmp.command("pair_coeff	* * ../Fe_2.eam.fs Fe Fe Fe")
+#    lmp.command("group       reg12 type 1 2")
+#    lmp.command("compute 	output all pe")
+#    lmp.command("run 		0")
+#    
+#    ## extract the energy 
+#    energy = lmp.extract_compute("output",0,0)
+#        
+#    return energy
     
        
 def relaxation_cycle(datafilename,G,size_1,size_12,size_123,method,maxcgiter):
@@ -192,27 +194,25 @@ def relaxation_cycle(datafilename,G,size_1,size_12,size_123,method,maxcgiter):
 
     Returns
     -------
-    grid       : (size_123,5) np array of the index,type(region),m,n,t coords of each atom
+    grid       : (size_123,5) ndarray of the index,type(region),m,n,t coords of each atom
                  at the end of the loop
     
     """
 
     ## call LAMMPS to relax region 1 
-    ## relax for a fixed number of iterations each time
+    ## relax for a fixed number of iterations (maxcgiter) each time
+    ## the grid output by this function has atom mnt coords in Angstroms
     grid,forces = lammps_minimize_getforces(datafilename,maxcgiter,ftol=1E-10)
-    forces = np.reshape(forces,(3*size_123,1))
+    forces_2 = np.reshape(forces[size_1:size_12],(3*(size_12-size_1),1))
     
     ## LGF update
     if method == 'dislLGF123' or method == 'perfbulkLGF123':
         ## displace region 1+2+3 according to LGF and update atom positions in grid
-        grid[:,2:5] -= np.reshape(-np.dot(G[:3*size_123,3*size_1:],
-                                          forces[3*size_1:3*size_12]),
-                                  (size_123,3))
+        grid[:,2:5] -= np.reshape(-np.dot(G,forces_2),(size_123,3))
             
     elif method == 'dislLGF23' or method == 'perfbulkLGF23':
         ## displace region 2+3 according to LGF and update atom positions in grid
-        grid[size_1:,2:5] -= np.reshape(-np.dot(G[3*size_1:3*size_123,3*size_1:],
-                                                forces[3*size_1:3*size_12]),
+        grid[size_1:,2:5] -= np.reshape(-np.dot(G[3*size_1:,:],forces_2),
                                         (size_123-size_1,3))
         
     else:
@@ -267,7 +267,7 @@ if __name__ == '__main__':
     crystalclass: crystal class (4=cubic; 9=hexagonal; 10=isotropic)  
     a0          : lattice constant (angstroms)
     Cijs        : list of Cijs (GPa)
-    M           : 3x3 matrix for rotating from mnt basis to cartesian basis
+    M           : 3x3 matrix for rotating from mnt basis to cubic cartesian basis
                   (columns are normalized m,n,t vectors)
     t_mag       : magnitude of the periodic vector along the dislocation threading direction
                   
@@ -284,7 +284,7 @@ if __name__ == '__main__':
     """
     with open(args.atomxyzfile,'r') as f2:
         grid,[size_1,size_12,size_123,size_in] = IO_xyz.grid_from_xyz_reg(f2.read(),args.atomlabel,a0)
-
+    size_2 = size_12 - size_1
 
     ## write lammps .data file of dislocation geometry
     datafilename = 'dislgeom.data'
@@ -292,14 +292,17 @@ if __name__ == '__main__':
         ## I just modified the function to label the atoms by region instead of basis atom type
         ## but I haven't checked it, so be careful!
         f.write(IO_lammps.lammps_writedatafile_reg(grid[:size_123],a0,t_mag))
-        
-        
-    ## Load G matrix and rotate to mnt basis (G is originally in xyz basis)    
-    G = np.load(args.Gfile)       
-    G_mnt = np.zeros((size_123*3,size_12*3))
+                
+    ## Load G matrix computed by calc_LGF.py
+    G = np.load(args.Gfile)
+
+    ## rotate G from xyz to mnt basis
+    G_mnt = np.zeros((size_123*3,size_2*3))
     if method == 'dislLGF123' or method == 'dislLGF23':
+        if G.shape[0] != size_123*3 or G.shape[1] != size_2*3:
+            raise ValueError('G has the wrong shape!')
         for i in range(size_123):
-            for j in range(size_12):
+            for j in range(size_2):
                 G_mnt[i*3:(i+1)*3,j*3:(j+1)*3] = np.dot(M.T,np.dot(G[i*3:(i+1)*3,j*3:(j+1)*3],M))
                  
     elif method == 'perfbulkLGF123' or method == 'perfbulkLGF23':
@@ -307,8 +310,9 @@ if __name__ == '__main__':
         ## the index mapping between the dislocation and perfect bulk!
         mapping = np.load(args.mappingfile)  
         for i in range(size_123):
-            for j in range(size_12):
-                i_b,j_b = mapping[i][j]
+            for j in range(size_2):
+                i_b,j_b = mapping[i][j+size_1]
+                j_b = j_b-size_1
                 G_mnt[i*3:(i+1)*3,j*3:(j+1)*3] = np.dot(M.T,np.dot(G[i_b*3:(i_b+1)*3,j_b*3:(j_b+1)*3],M))   
                 
     else:
@@ -320,16 +324,18 @@ if __name__ == '__main__':
     
     """""""""
   
+    atominfo = namedtuple('atom',['ind','reg','m','n','t','basis'])
+    
     ## compute initial forces in regions 1,2,3 using LAMMPS
     forces = lammps_getforces(datafilename)
-    forces = np.reshape(forces,(3*size_123,1))
+    forces_12 = np.reshape(forces[:size_12],(3*size_12,1))
 
     ## carry out relaxation until force tolerance level or max. # iterations is reached
     ## you should double check the force criteria, whether comparing force 2-norm or max. force...
     force_evolution = []
     for i in range(args.maxiter):        
-        force_2norm = np.linalg.norm(forces[:3*size_12])
-#        force_max = abs(forces.flat[abs(forces).argmax()])
+        force_2norm = np.linalg.norm(forces_12)
+#        force_max = abs(forces_12.flat[abs(forces_12).argmax()])
         force_evolution.append(force_2norm)
         if force_2norm < args.ftol:
             break
@@ -338,13 +344,19 @@ if __name__ == '__main__':
         else:
             ## perform 1 core relaxation in LAMMPS followed by 1 LGF update step
             grid_new = relaxation_cycle(datafilename,G_mnt,size_1,size_12,size_123,method,args.maxcgiter)
-            ## write out the new atom positions into LAMMPS atom data input file        
+            ## convert grid from ndarray to namedtuple
+            ## (basis atom type is not important here so I set it as a dummy)
+            grid = [atominfo(atom[0],atom[1],atom[2],atom[3],atom[4],0) for atom in grid_new]
+            ## write out the new atom positions into LAMMPS atom data input file
+            ## since the atom coords in the new grid are in Angstroms (not scaled out by a0)
+            ## pass a dummy a0=1.0 to the lammps_writedatafile_reg function
             with open(datafilename, 'w') as f:
-                f.write(IO_lammps.lammps_writedatafile_reg(grid_new,a0,t_mag))
+                f.write(IO_lammps.lammps_writedatafile_reg(grid,1.0,t_mag))
             ## call LAMMPS again to compute forces in reg 1+2 after LGF update
             forces_new = lammps_getforces(datafilename)
-            forces = np.reshape(forces_new,(3*size_123,1))
+            forces_12 = np.reshape(forces_new[:size_12],(3*size_12,1))
 
     ## write out the force 2-norms / max. force at every cycle
     np.save('forces.npy',force_evolution)
        
+    
