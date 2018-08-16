@@ -1,6 +1,7 @@
 import numpy as np
 from collections import namedtuple
 
+atominfo = namedtuple('atom',['ind','reg','m','n','t','basis'])
 
 def grid_from_xyz(s,atomtypes,a0):
 
@@ -20,8 +21,6 @@ def grid_from_xyz(s,atomtypes,a0):
            ** coordinates are scaled out by a factor of a0 !!
     
     """
-
-    atominfo = namedtuple('atom',['ind','reg','m','n','t','basis'])
 
     grid = []    
     for line in s.splitlines()[2:]:
@@ -57,8 +56,6 @@ def grid_from_xyz_reg(s,atomtypes,a0=1.0):
     sizes : numbers of atoms in reg1, 1+2, 1+2+3, 1+2+3+buffer
   
     """
-
-    atominfo = namedtuple('atom',['ind','reg','m','n','t','basis'])
 
     size_1,size_12,size_123,size_in = [int(i) for i in (s.splitlines()[1]).split()[:4]]
 
