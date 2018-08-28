@@ -1,5 +1,6 @@
 import scipy.io, argparse, logging
 import numpy as np
+import h5py
 from lammps import lammps
 import setup
 import IO_xyz
@@ -22,7 +23,7 @@ def init_lammps(lmp, datafilename):
     lmp.command(PAIR_STYLE)
     lmp.command(PAIR_COEFF)
 
-def calcforces_lammps(datafilename,i,disp,size_all):
+def calcforces_lammps(datafilename,i,delta,size_all):
     
     """
     Call lammps to compute the forces in response to a displaced atom i
@@ -31,7 +32,7 @@ def calcforces_lammps(datafilename,i,disp,size_all):
     ----------
     datafilename : data file from which lammps reads the atomic position data from (dislocation geometry)
     i : atom index of the atom to be displaced (0-based index)
-    disp : displacement vector
+    delta : displacement amount
     size_all : number of atoms in the system
     
     Returns
@@ -40,25 +41,34 @@ def calcforces_lammps(datafilename,i,disp,size_all):
     
     """
     
+    # now using centered difference on the cheap (internal to LAMMPS)
     lmp = lammps()
     init_lammps(lmp, datafilename)
     lmp.command("group          testatom id %d"%(i+1))
-    lmp.command("displace_atoms testatom move %0.12f %0.12f %0.12f"%(disp[0],disp[1],disp[2]))
     lmp.command("compute        output all property/atom id type fx fy fz")
-    lmp.command("run            0")
+    f_d = np.zeros((3, 3, size_all))
+    for d, disp in enumerate(delta*np.eye(3)):
+        lmp.command("displace_atoms testatom move %0.12f %0.12f %0.12f"%(disp[0],disp[1],disp[2]))
+        lmp.command("run            0")
     
-    ## extract the forces   
-    output = lmp.extract_compute("output",1,2)
-    return np.array([output[i][2:5] for i in range(size_all)])
+        ## extract the forces   
+        output = lmp.extract_compute("output",1,2)
+        fpos = np.array([output[j][2:5] for j in range(size_all)]).T
 
-    # forces = np.zeros((size_all,3))
-    # for i in range(size_all):
-    #     forces[i] = output[i][2:5]
-    # return forces
+        lmp.command("displace_atoms testatom move %0.12f %0.12f %0.12f"%(-2*disp[0],-2*disp[1],-2*disp[2]))
+        # lmp.command("compute        output all property/atom id type fx fy fz")
+        lmp.command("run            0")
+        lmp.command("displace_atoms testatom move %0.12f %0.12f %0.12f"%(disp[0],disp[1],disp[2]))
+    
+        ## extract the forces   
+        output = lmp.extract_compute("output",1,2)
+        fneg = np.array([output[j][2:5] for j in range(size_all)]).T
+        f_d[d] = 0.5*(fpos-fneg)/delta
+
+    return f_d
 
 
 if __name__ == '__main__':
-
 
     parser = argparse.ArgumentParser(description='Directly evaluates dislocation force-constants using empirical potential.')
     parser.add_argument('inputfile',
@@ -71,14 +81,11 @@ if __name__ == '__main__':
                         'Place the flag -atomlabel before each entry. '
                         'Despite the flag, this is a REQUIRED (not optional) argument!')
     parser.add_argument('Dfile',
-                        help='.mtx file to save the FC matrix D to')
+                        help='HDF5 file to save the FC matrix D to')
     parser.add_argument('cutoff',type=float,
                         help='(float) cutoff distance for forces and force-constants (Angstroms)')
     parser.add_argument('-logfile',
                         help='logfile to save to')
-    parser.add_argument('-finitediff',
-                        help='finite difference method to use (forward/central). '
-                        'Default is forward difference.')
     parser.add_argument('-disp',type=float,
                         help='(float) magnitude of displacements to apply. '
                         'Default is 1E-05 Angstroms.')
@@ -134,16 +141,6 @@ if __name__ == '__main__':
     with open(datafilename, 'w') as f:
         f.write(IO_lammps.lammps_writedatafile(grid,1.,t_mag*a0))
 
-    fwddiff = 1
-    if args.finitediff:
-        if args.finitediff[0] == 'f':
-            logging.info('using forward differences')
-        elif args.finitediff[0] == 'c':
-            fwddiff = 0
-            logging.info('using central differences')
-    else:
-        logging.info('using forward differences by default')
-
     if args.istart: 
         istart = args.istart
     else: 
@@ -158,38 +155,22 @@ if __name__ == '__main__':
     else:
         disp = 1E-05
 
-    if fwddiff == 1:  
-        force_nodisp = calcforces_lammps(datafilename,0,[0.,0.,0.],size_all)
-  
     D = scipy.sparse.lil_matrix((size_in*3,size_all*3)) 
     for i in range(istart,iend+1):
         logging.info('displacing atom %d'%i)
       
-        ## displace atom in positive m,n,t directions
-        force_dmpos = calcforces_lammps(datafilename,i,[disp,0.,0.],size_all)
-        force_dnpos = calcforces_lammps(datafilename,i,[0.,disp,0.],size_all)
-        force_dtpos = calcforces_lammps(datafilename,i,[0.,0.,disp],size_all)
-
-        if fwddiff == 0: 
-        ## displace atom in negative m,n,t directions
-            force_dmneg = calcforces_lammps(datafilename,i,[-disp,0.,0.],size_all)
-            force_dnneg = calcforces_lammps(datafilename,i,[0.,-disp,0.],size_all)
-            force_dtneg = calcforces_lammps(datafilename,i,[0.,0.,-disp],size_all)
-        
+        forces = calcforces_lammps(datafilename,i,disp,size_all)  # now does +-m, +-n, +-t
         for j in range(size_all):
-            if np.linalg.norm(np.array(grid[j][2:5])-np.array(grid[i][2:5])) <= args.cutoff/a0:
-                ## don't store force-constants outside interaction range which are zero
-                forcej_dpos = np.array([force_dmpos[j],force_dnpos[j],force_dtpos[j]]).T
-                if fwddiff == 0:
-                    ## use central differences
-                    forcej_dneg = np.array([force_dmneg[j],force_dnneg[j],force_dtneg[j]]).T
-                    D_mnt = -(forcej_dpos-forcej_dneg)/(2*disp)  
-                if fwddiff == 1:
-                    ## use forward differences
-                    forcej_nodisp = np.array([force_nodisp[j],force_nodisp[j],force_nodisp[j]]).T
-                    D_mnt = -(forcej_dpos-forcej_nodisp)/disp  
+            # changed to only use distance in-plane, and to not scale cutoff by a0:
+            if np.linalg.norm(forces[:,:, j]) >= 1e-6:
+                D_mnt = -forces[:, :, j]
         
                 D[i*3:(i+1)*3,j*3:(j+1)*3] = np.dot(M,np.dot(D_mnt,M.T)) ## rotate from mnt to xyz cart coords
 #                D[i*3:(i+1)*3,j*3:(j+1)*3] = np.dot(M,np.dot(D_mnt.T,M.T)) ## rotate from mnt to xyz cart coords
             
-    scipy.io.mmwrite(args.Dfile, D)
+    # Dump as hdf file instead (faster, and less space):
+    D_csr = D.tocsr()
+    with h5py.File(args.Dfile, 'w') as f:
+        f['data'] = D_csr.data
+        f['indices'] = D_csr.indices
+        f['indptr'] = D_csr.indptr
