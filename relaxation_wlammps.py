@@ -1,7 +1,8 @@
 import numpy as np
+import h5py
 from lammps import lammps
 from collections import namedtuple
-import argparse
+import argparse, logging
 import setup
 import IO_xyz
 import IO_lammps
@@ -17,12 +18,13 @@ def init_lammps(lmp, datafilename):
     lmp.command('atom_style	atomic')
     lmp.command('atom_modify map array sort 0 0')  # forces LAMMPS to output in sorted order
     lmp.command('boundary	f f p')
+    lmp.command('thermo 1')
     lmp.command('read_data	{}'.format(datafilename))
     lmp.command(PAIR_STYLE)
     lmp.command(PAIR_COEFF)
 
 
-def lammps_minimize_getforces(datafilename,maxcgiter,ftol):
+def lammps_minimize_getforces(datafilename,maxcgiter,ftol, antiplane=False):
 
     """
     Call lammps to relax region 1 and compute the forces afterwards 
@@ -45,15 +47,23 @@ def lammps_minimize_getforces(datafilename,maxcgiter,ftol):
     init_lammps(lmp, datafilename)
     
     ## relax reg 1, keeping reg 2+3 fixed  
+    lmp.command("group 	reg1 type 1")
+    lmp.command("group 	reg12 type 1 2")
     lmp.command("group 	reg23 type 2 3")
-    lmp.command("fix		1 reg23 setforce 0.0 0.0 0.0")
-    lmp.command("min_style	cg")
+    lmp.command("group 	reg3 type 3")
+    if antiplane:
+        lmp.command("fix		1 reg1 setforce 0.0 0.0 NULL")
+    lmp.command("fix		2 reg23 setforce 0.0 0.0 0.0")
+    # lmp.command("min_style	cg")
+    lmp.command("min_style	hftn")
     lmp.command("minimize	0.0 %0.16f %d 10000"%(ftol,maxcgiter))
     
     ## compute reg 1+2 forces 
-    lmp.command("unfix       1")
-    lmp.command("group 	reg3 type 3")
-    lmp.command("fix		2 reg3 setforce 0.0 0.0 0.0")
+    if antiplane:
+        lmp.command("unfix	1")
+        lmp.command("fix		3 reg12 setforce 0.0 0.0 NULL")
+    lmp.command("unfix       2")
+    lmp.command("fix		4 reg3 setforce 0.0 0.0 0.0")
     lmp.command("compute 	output all property/atom id type x y z fx fy fz")
     lmp.command("run 		0")
     
@@ -67,7 +77,7 @@ def lammps_minimize_getforces(datafilename,maxcgiter,ftol):
     return grid_temp,forces
 
 
-def lammps_getforces(datafilename):
+def lammps_getforces(datafilename, antiplane=False):
     
     """
     Call lammps to compute the forces in regions 1 & 2 
@@ -86,8 +96,11 @@ def lammps_getforces(datafilename):
     init_lammps(lmp, datafilename)
     
     ## compute reg 1+2 forces 
+    lmp.command("group 	reg12 type 1 2")
     lmp.command("group       reg3 type 3")
     lmp.command("fix		1 reg3 setforce 0.0 0.0 0.0")
+    if antiplane:
+        lmp.command("fix		2 reg12 setforce 0.0 0.0 NULL")
     lmp.command("compute 	output all property/atom id type fx fy fz")
     lmp.command("run 		0")
     
@@ -101,7 +114,8 @@ def lammps_getforces(datafilename):
     return forces
     
 
-def relaxation_cycle(datafilename,G,size_1,size_12,size_123,method,maxcgiter, scale=1.0):
+def relaxation_cycle(datafilename,G,size_1,size_12,size_123,method,maxcgiter, maxdisp=1e2,
+                     antiplane=False):
     
     """
     carries out 1 relaxation cycle = 1 core relax + 1 LGF update
@@ -115,6 +129,7 @@ def relaxation_cycle(datafilename,G,size_1,size_12,size_123,method,maxcgiter, sc
     size_123     : number of atoms in regions 1+2+3
     method       : (string) method to use for the LGF update step
     maxcgiter    : maximum iterations stopping criteria for cg
+    maxdisp      : upper limit on displacement to allow from LGF
 
     Returns
     -------
@@ -126,23 +141,28 @@ def relaxation_cycle(datafilename,G,size_1,size_12,size_123,method,maxcgiter, sc
     ## call LAMMPS to relax region 1 
     ## relax for a fixed number of iterations (maxcgiter) each time
     ## the grid output by this function has atom mnt coords in Angstroms
-    grid,forces = lammps_minimize_getforces(datafilename,maxcgiter,ftol=1E-10)
+    grid,forces = lammps_minimize_getforces(datafilename,maxcgiter,ftol=1E-6,antiplane=antiplane)
     forces_2 = np.reshape(forces[size_1:size_12],(3*(size_12-size_1),1))
     
     ## LGF update
     if method == 'dislLGF123' or method == 'perfbulkLGF123':
         ## displace region 1+2+3 according to LGF and update atom positions in grid
-        grid -= scale*np.reshape(-np.dot(G,forces_2),(size_123,3))
+        disp = np.reshape(np.dot(G,forces_2),(size_123,3))
+        dispmax = np.sqrt(max(sum(u**2) for u in disp))
+        logging.debug('### Displacement max: {}'.format(dispmax))
+        scale = 1 if dispmax < maxdisp else maxdisp/dispmax
+        logging.debug('### scale: {}'.format(scale))
+        grid += scale*disp
             
     elif method == 'dislLGF23' or method == 'perfbulkLGF23':
         ## displace region 2+3 according to LGF and update atom positions in grid
-        grid[size_1:] -= scale*np.reshape(-np.dot(G[3*size_1:,:],forces_2),
+        grid[size_1:] -= np.reshape(-np.dot(G[3*size_1:,:],forces_2),
                                     (size_123-size_1,3))
         
     else:
         raise ValueError('invalid method!')
-   
-    return grid 
+
+    return grid
     
 
 if __name__ == '__main__':
@@ -172,13 +192,27 @@ if __name__ == '__main__':
                         default=51)
     parser.add_argument('-forcetol', type=float,
                         help='force tolerance convergence criteria',
-                        default=1E-12)
+                        default=1E-6)
+    parser.add_argument('-logfile',
+                        help='logfile to save to')
     parser.add_argument('-mappingfile',
                         help='.npy file with the mapping from edge to perfect bulk geometry')
+    parser.add_argument('-antiplane', type=bool, default=False,
+                        help='only perform displacements in the threading direction')
                           
     ## read in the above arguments from command line
     args = parser.parse_args()
     method = args.method
+
+    ## set up logging
+    if args.logfile:
+        logging.basicConfig(filename=args.logfile,filemode='w',format='%(levelname)s: %(message)s', level=logging.DEBUG)    
+        console = logging.StreamHandler()
+        console.setLevel(logging.INFO)
+        console.setFormatter(logging.Formatter('%(levelname)s: %(message)s'))
+        logging.getLogger('').addHandler(console)
+    else:
+        logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.INFO)
 
 
     """""
@@ -219,7 +253,15 @@ if __name__ == '__main__':
         f.write(IO_lammps.lammps_writedatafile_reg(grid[:size_123],1.,t_mag*a0))
                 
     ## Load G matrix computed by calc_LGF.py
-    G = np.load(args.Gfile)
+    # G = np.load(args.Gfile)
+    with h5py.File(args.Gfile, 'r') as f:
+        if f.attrs['size_1'] != size_1:
+            raise ValueError('LGF not consistent with setup? Has size_1 = {} != {}'.format(f.attrs['size_1'], size_1))
+        if f.attrs['size_12'] != size_12:
+            raise ValueError('LGF not consistent with setup? Has size_12 = {} != {}'.format(f.attrs['size_12'], size_12))
+        if f.attrs['size_123'] != size_123:
+            raise ValueError('LGF not consistent with setup? Has size_123 = {} != {}'.format(f.attrs['size_123'], size_123))
+        G = f['GF'].value
 
     ## rotate G from xyz to mnt basis
     G_mnt = np.zeros((size_123*3,size_2*3))
@@ -252,7 +294,7 @@ if __name__ == '__main__':
     atominfo = namedtuple('atom',['ind','reg','m','n','t','basis'])
     
     ## compute initial forces in regions 1,2,3 using LAMMPS
-    forces = lammps_getforces(datafilename)
+    forces = lammps_getforces(datafilename, args.antiplane)
     forces_12 = np.reshape(forces[:size_12],(3*size_12,1))
 
     ## carry out relaxation until force tolerance level or max. # iterations is reached
@@ -260,17 +302,23 @@ if __name__ == '__main__':
     with open('initial-dislocation.data', 'w') as f:
         f.write(IO_lammps.lammps_writedatafile_reg(grid,1.,t_mag*a0))
     force_evolution = []
-    for i in range(args.maxiter):        
+    for i in range(args.maxiter):
         force_2norm = np.linalg.norm(forces_12)
-#        force_max = abs(forces_12.flat[abs(forces_12).argmax()])
+        force_max = abs(forces_12.flat[abs(forces_12).argmax()])
+        logging.info('Iteration {}'.format(i+1))
+        logging.info('Forces region 1:\n{}'.format(forces_12.reshape((size_12, 3))[:size_1]))
+        logging.info('Forces region 2:\n{}'.format(forces_12.reshape((size_12, 3))[size_1:]))
+        logging.info('Force norm: {}'.format(force_2norm))
+        logging.info('Force max: {}'.format(force_max))
         force_evolution.append(force_2norm)
-        if force_2norm < args.forcetol:
+        # if force_2norm < args.forcetol*size_12:
+        if force_max < args.forcetol:
             break
         elif force_2norm > 1E2: ## if forces blow up, something has gone very wrong!
             break
         else:
             ## perform 1 core relaxation in LAMMPS followed by 1 LGF update step
-            grid_mat = relaxation_cycle(datafilename,G_mnt,size_1,size_12,size_123,method,args.maxcgiter, 1e-2)
+            grid_mat = relaxation_cycle(datafilename,G_mnt,size_1,size_12,size_123,method,args.maxcgiter, 0.05, antiplane=args.antiplane)
             ## convert grid from ndarray to namedtuple
             ## (basis atom type is not important here so I set it as a dummy)
             grid_new = [atominfo(atom.ind,atom.reg,mnt[0],mnt[1],mnt[2],0)
@@ -281,7 +329,7 @@ if __name__ == '__main__':
             with open(datafilename, 'w') as f:
                 f.write(IO_lammps.lammps_writedatafile_reg(grid_new,1.,t_mag*a0))
             ## call LAMMPS again to compute forces in reg 1+2 after LGF update
-            forces_new = lammps_getforces(datafilename)
+            forces_new = lammps_getforces(datafilename, antiplane=args.antiplane)
             forces_12 = np.reshape(forces_new[:size_12],(3*size_12,1))
 
     ## write out the force 2-norms / max. force at every cycle
