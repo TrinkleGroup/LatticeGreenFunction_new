@@ -1,6 +1,7 @@
 import time, scipy.io, argparse, logging
 import numpy as np
 import scipy.sparse.linalg as sla
+import h5py
 import elastic
 import setup
 import IO_xyz
@@ -41,7 +42,9 @@ def setBC(i,grid,size_in,size_all,GEn,phi_R_grid,N,a0,t_mag,f):
         ## rvec is the vector between the 2 atoms in terms of mnt
         rvec = np.array([grid[i].m,grid[i].n,grid[i].t]) - np.array([atom_ff.m,atom_ff.n,atom_ff.t])
         ## R is the R_perp in the mn plane
-        R = a0*np.sqrt(rvec[0]**2 + rvec[1]**2)
+	## CHANGED BY DRT: no longer scaled by a0.
+        # R = a0*np.sqrt(rvec[0]**2 + rvec[1]**2)
+        R = np.sqrt(rvec[0]**2 + rvec[1]**2)
         ## phi is the angle wrt +m axis
         phi = np.arctan2(rvec[1],rvec[0])
         if (abs(phi) > 1E-8):
@@ -69,9 +72,9 @@ if __name__ == '__main__':
                         'Place the flag -atomlabel before each entry. '
                         'Despite the flag, this is a REQUIRED (not optional) argument!')
     parser.add_argument('Dfile',
-                        help='.mtx file to read the FC matrix D from')
+                        help='HDF5 file to read the FC matrix D from')
     parser.add_argument('Gfile',
-                        help='.npy file to save the computed G to')
+                        help='HDF5 file to save the computed G to')
     parser.add_argument('-logfile',
                         help='logfile to save to')
     parser.add_argument('-LGF_jmin',type=int,
@@ -81,6 +84,10 @@ if __name__ == '__main__':
                         help='(int) last atom index to compute LGF for. '
                         'Default is the last atom in region 2. '
                         'Note! Atom indices are based on 0-based indexing.')
+    parser.add_argument('-tol',type=float,
+                        help='(float) tolerance for relaxation.',
+                        default=1e-5)
+    
        
     ## read in the above arguments from command line
     args = parser.parse_args()   
@@ -125,11 +132,17 @@ if __name__ == '__main__':
 
     ## load the big D matrix from file
     logging.info('loading D...')
-    D = scipy.io.mmread(args.Dfile).tocsr()
+    # D = scipy.io.mmread(args.Dfile).tocsr()
+    with h5py.File(args.Dfile, 'r') as f:
+        # need to be explicit with *shape* in case we have disconnected
+        # atoms in the far-field:
+        D = scipy.sparse.csr_matrix((f['data'], f['indices'], f['indptr']),
+                shape=(size_in*3, size_all*3))
 
     ## construct the 3x3x3x3 elastic stiffness tensor  
     ## convert elastic constants from GPa to eV/A^3
     C = elastic.convert_from_GPa(elastic.expand_C(elastic.construct_C(crystalclass,Cijs)))
+    # print(C)
     
     ## assemble the pieces necessary to evaluate the large R LGF, i.e. EGF
     ## based on the expression found in D.R. Trinkle, Phys. Rev. B 78, 014110 (2008)
@@ -146,8 +159,12 @@ if __name__ == '__main__':
         LGF_jmax = args.LGF_jmax
     else: 
         LGF_jmax = size_12-1  ## if LGF_jmax not specified, default = size_12-1
+
+    Din = D[0:3*size_in, 0:3*size_in]
+    # Din = 0.5*(D[0:3*size_in, 0:3*size_in] + D[0:3*size_in, 0:3*size_in].T)
     
-    logging.info('Looping through atoms...')    
+    logging.info('Looping through atoms...')
+    direction = 'mnt'
     ## loop through every atom and every direction in reg 2
     for j in range(LGF_jmin,LGF_jmax+1):
         for d in range(0,3):
@@ -157,6 +174,7 @@ if __name__ == '__main__':
             f[j*3+d] = 1
 
             ## displace atoms in far-field boundary according to u_bc = -EGF.f(II)
+            logging.debug('  EGF displacement of {} along {}'.format(j, direction[d]))
             u_bc = setBC(j,grid,size_in,size_all,GEn,phi_R_grid,N,a0,t_mag,np.reshape(f,(size_in,3)))
             
             ## add the "correction forces" out in the buffer region
@@ -164,8 +182,10 @@ if __name__ == '__main__':
             f += D.dot(np.reshape(u_bc,3*size_all))
 
             ## solve Dii.u = f_eff for u
+            logging.debug('  entering solver for {} along {}'.format(j, direction[d]))
             t1 = time.time()  
-            [uf,conv] = sla.cg(D[0:3*size_in,0:3*size_in],f,tol=1e-08)
+            # [uf,conv] = sla.cg(D[0:3*size_in,0:3*size_in],f,tol=1e-08)
+            [uf,conv] = sla.cg(Din,f,tol=args.tol)
             logging.debug('%d, solve time: %f'%(conv,time.time()-t1))
 
             ## since I put in initial forces of unit magnitude,,
@@ -175,10 +195,14 @@ if __name__ == '__main__':
             else:
                 G = np.column_stack((G,uf[0:3*size_123]))
 
-            logging.info('Atom %d direction %d'%(j,d))
+            logging.info('Atom {} direction {}'.format(j,direction[d]))
 
-        np.save(args.Gfile, G) ## save updated G after every atom (3 columns)
+        # np.save(args.Gfile, G) ## save updated G after every atom (3 columns)
+    with h5py.File(args.Gfile, 'w') as f:
+        f.attrs['size_1'] = size_1
+        f.attrs['size_12'] = size_12
+        f.attrs['size_123'] = size_123
+        f.attrs['size_in'] = size_in        
+        f['GF'] = G
         
     logging.info('COMPLETED !! Total time taken: %.5f'%(time.time()-t0))
-   
-     
