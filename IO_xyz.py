@@ -3,7 +3,7 @@ from collections import namedtuple
 
 atominfo = namedtuple('atom',['ind','reg','m','n','t','basis'])
 
-def grid_from_xyz(s,atomtypes,a0):
+def grid_from_xyz(s,atomtypes,a0=1.0):
 
     """
     Read from a string containing the data from an xyz file. 
@@ -13,6 +13,7 @@ def grid_from_xyz(s,atomtypes,a0):
     s : string containing the data from an xyz file.
     atomtypes: list of name labels for each basis atom type
     a0 : lattice constant in Angstroms
+         (default a0=1.0 means do not scale coords out by a0)
 
     Returns
     -------
@@ -47,6 +48,7 @@ def grid_from_xyz_reg(s,atomtypes,a0=1.0):
     s : string containing the data from the anisotropic dislocation geometry setup file
     atomtypes: list of name labels for each basis atom type
     a0 : lattice constant in Angstroms
+         (default a0=1.0 means do not scale coords out by a0)
 
     Returns
     -------

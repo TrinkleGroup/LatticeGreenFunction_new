@@ -117,6 +117,7 @@ def lammps_calcforces_findiff(datafilename,i,delta,size_all,centraldiff,f0):
 
 if __name__ == '__main__':
 
+    
     parser = argparse.ArgumentParser(description='Directly evaluates dislocation force-constants using empirical potential.')
     parser.add_argument('inputfile',
                         help='input file that contains the crystal and dislocation setup info')
@@ -175,6 +176,7 @@ if __name__ == '__main__':
     """
     grid : list of namedtuples containing atom info
            [index, region, m-coord, n-coord, t-coord, basis]
+           ** we'll leave the atom coords in Angstroms, i.e. not scaled out by a0
     size_1,size_12,size_123,size_in,size_all: cumulative # atoms in each of the regions
     
     """
@@ -234,4 +236,5 @@ if __name__ == '__main__':
         f['data'] = D_csr.data
         f['indices'] = D_csr.indices
         f['indptr'] = D_csr.indptr
+        
         
