@@ -38,10 +38,10 @@ There are two ways to do this:
 The script `calc_D_direct.py` evaluates the dislocation FCs directly in the dislocation geometry using an empirical potential in LAMMPS (e.g. EAM, GAP). This script calls LAMMPS directly, so you will need to first set up the python-LAMMPS interface following the instructions [here](http://lammps.sandia.gov/doc/Section_python.html).
 
 In addition to the two input files above, this script requires one more input file:
-- a file that lists the `[pair_style]`(https://lammps.sandia.gov/doc/pair_style.html) and `[pair_coeff]`(https://lammps.sandia.gov/doc/pair_coeff.html)`commands for LAMMPS
+- a file that lists the [`pair_style`](https://lammps.sandia.gov/doc/pair_style.html) and [`pair_coeff`](https://lammps.sandia.gov/doc/pair_coeff.html) commands for LAMMPS
 ```
-pair_style   <style; e.g. eam/fs>
-pair_coeff   <coeffs; e.g. * * ./w_eam4.fs W W W>
+pair_style   <args>
+pair_coeff   <args>
 ```
 
 ```
@@ -71,7 +71,7 @@ optional arguments:
   -iend IEND            (int) last atom index to displace. Default is the last atom in the buffer.
 			Note! Atom indices are based on 0-based indexing.						
 ```
-The optional arguments -istart and -iend can be used to parallalize this calculation (which may be necessary if you're using a more computationally expensive potential such as GAP), so that multiple jobs can be run concurrently with each looping over different subsets of atom indices. At the end, you simply combine the force-constant matrices by adding them up.
+The optional arguments `-istart` and `-iend` can be used to parallalize this calculation (which may be necessary if you're using a more computationally expensive potential such as GAP), so that multiple jobs can be run concurrently with each looping over different subsets of atom indices. At the end, you simply combine the force-constant matrices by adding them up.
 
 ## 2. Evaluating the lattice Green function
 
@@ -102,7 +102,7 @@ optional arguments:
   			Note! Atom indices are based on 0-based indexing.
   -tol TOL              (float) tolerance for CG solver.
 ```
-The optional arguments -LGF_jmin and -LGF_jmax can be used to parallalize this calculation, so that multiple jobs can be run concurrently with each looping over different subsets of atom indices. At the end, you simply stack the LGF matrices column-wise.
+The optional arguments `-LGF_jmin` and `-LGF_jmax` can be used to parallalize this calculation, so that multiple jobs can be run concurrently with each looping over different subsets of atom indices. At the end, you simply stack the LGF matrices column-wise.
 
 Note that the current version of this code calls functions from `elastic.py` to evaluate the far-field displacements according to the bulk elastic Green function. If you require other boundary conditions, e.g. elastic Green function for a bicrystal, you will have to code those up yourself and call them within `calc_LGF.py` at the part where we set the displacement of atoms in the far-field boundary.
 
