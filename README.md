@@ -29,16 +29,16 @@ Before we get started, prepare the following files:
 
 ## 1. Generating the dislocation force-constant matrix
 
-There are a few ways to do this -- either (a) by approximating the dislocation FCs based on bulk FCs, or (b) by evaluating the dislocation FCs directly in the dislocation geometry using an empirical potential (e.g. EAM, GAP).
+There are two ways to do this:
 
-### (a) approximate the dislocation FCs based on bulk FCs
+### (a) approximating the dislocation FCs based on bulk FCs
 [more to come in this section...]
 
-### (b) evaluate the dislocation FCs directly
-The script `calc_D_direct.py` evaluates the dislocation FCs directly in the dislocation geometry using an empirical potential in LAMMPS. This script calls LAMMPS directly, so you will need to first set up the python-LAMMPS interface following the instructions [here](http://lammps.sandia.gov/doc/Section_python.html).
+### (b) evaluating the dislocation FCs directly
+The script `calc_D_direct.py` evaluates the dislocation FCs directly in the dislocation geometry using an empirical potential in LAMMPS (e.g. EAM, GAP). This script calls LAMMPS directly, so you will need to first set up the python-LAMMPS interface following the instructions [here](http://lammps.sandia.gov/doc/Section_python.html).
 
 In addition to the two input files above, this script requires one more input file:
-- a file that lists the `[pair_style](https://lammps.sandia.gov/doc/pair_style.html)` and `[pair_coeff](https://lammps.sandia.gov/doc/pair_coeff.html)` commands for LAMMPS
+- a file that lists the `[pair_style]`(https://lammps.sandia.gov/doc/pair_style.html) and `[pair_coeff]`(https://lammps.sandia.gov/doc/pair_coeff.html)`commands for LAMMPS
 ```
 pair_style   <style; e.g. eam/fs>
 pair_coeff   <coeffs; e.g. * * ./w_eam4.fs W W W>
