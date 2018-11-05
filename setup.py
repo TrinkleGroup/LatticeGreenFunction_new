@@ -62,4 +62,42 @@ def readinputs(f):
     
     
     return (crystalclass,a0,Cijs,M,t_mag)
+
+
+def readprimitive(f):
+    
+    """
+    Reads in information from primitive input file.
+    This file is only needed if using the bulk FCs method for seeting up D.
+
+    Parameters
+    ----------
+    f : filename to read data from e.g. input_bccscrew  
+
+    Returns
+    -------        
+    A  : 3x3 matrix for rotating from primitive basis to cubic cartesian basis
+         (columns are a1,a2,a3 vectors)
+    unitcell_pos: positions of the basis atoms within the primitive unit cell
+    
+    """  
+    
+    ## read in lines from input file and ignore blank lines and comment lines
+    lines = [line.rstrip() for line in f if line.rstrip() if line[0] != '#']
+
+    # a1,a2,a3
+    A = np.array([[float(lines[0].split()[0]),float(lines[0].split()[1]),float(lines[0].split()[2])],
+                  [float(lines[1].split()[0]),float(lines[1].split()[1]),float(lines[1].split()[2])],
+                  [float(lines[2].split()[0]),float(lines[2].split()[1]),float(lines[2].split()[2])]]).T
+                  
+    # number of basis atoms
+    num_basis = int(lines[3].split()[0]) 
+
+    # basis atom positions in unit cell
+    unitcell_pos = []
+    for i in range(num_basis): 
+        unitcell_pos.append([float(lines[4+i].split()[0]),float(lines[4+i].split()[1]),float(lines[4+i].split()[2])])                 
+       
+    return (A,unitcell_pos)
+
                                     
