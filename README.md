@@ -17,7 +17,7 @@ Before we get started, prepare the following files:
 <m.x> <m.y> <m.z>
 <n.x> <n.y> <n.z>
 <t.x> <t.y> <t.z>
-<squared magnitude of periodic vector t>
+<squared magnitude of periodic vector t (scaled out by a0)>
 ```
 - an xyz file that contains the atom positions, ordered by regions
 ```
@@ -27,29 +27,36 @@ Before we get started, prepare the following files:
 ...
 ```
 
-
 ## 1. Generating the dislocation force-constant matrix
 
-There are a few ways to do this -- either by approximating the dislocation FCs based on bulk FCs, or by evaluating the dislocation FCs directly in the dislocation geometry using an empirical potential (e.g. EAM, GAP).
+There are a few ways to do this -- either (a) by approximating the dislocation FCs based on bulk FCs, or (b) by evaluating the dislocation FCs directly in the dislocation geometry using an empirical potential (e.g. EAM, GAP).
 
+### (a) approximate the dislocation FCs based on bulk FCs
 [more to come in this section...]
 
+### (b) evaluate the dislocation FCs directly
 The script `calc_D_direct.py` evaluates the dislocation FCs directly in the dislocation geometry using an empirical potential in LAMMPS. This script calls LAMMPS directly, so you will need to first set up the python-LAMMPS interface following the instructions [here](http://lammps.sandia.gov/doc/Section_python.html).
 
-NOTE! Currently, the user is required to manually edit the `pair_style` and `pair_coeff` lines in the `calcforces_lammps` function in the script based on the potential being used. [In the future, I should probably change this into some sort of input to the script...]
+In addition to the two input files above, this script requires one more input file:
+- a file that lists the `[pair_style](https://lammps.sandia.gov/doc/pair_style.html)` and `[pair_coeff](https://lammps.sandia.gov/doc/pair_coeff.html)` commands for LAMMPS
+```
+pair_style   <style; e.g. eam/fs>
+pair_coeff   <coeffs; e.g. * * ./w_eam4.fs W W W>
+```
+
 ```
 usage: calc_D_direct.py [-h] -atomlabel ATOMLABEL [-logfile LOGFILE]
                         [-finitediff FINITEDIFF] [-disp DISP] [-istart ISTART]
                         [-iend IEND]
-                        inputfile atomxyzfile Dfile cutoff
+                        inputfile atomxyzfile Dfile lammpspairfile
 
 Directly evaluates dislocation force-constants using empirical potential.
 
 positional arguments:
   inputfile             input file that contains the crystal and dislocation setup info
   atomxyzfile           xyz file that contains the atom positions
-  Dfile                 .mtx file to save the FC matrix D to
-  cutoff                (float) cutoff distance for forces and force-constants (Angstroms)
+  Dfile                 HDF5 file to save the FC matrix D to
+  lammpspairfile        file listing the LAMMPS pair_style and pair_coeff
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -73,7 +80,7 @@ Now that we have the dislocation force-constant matrix, we can go ahead and comp
 The main script for this is `calc_LGF.py`.
 ```
 usage: calc_LGF.py [-h] -atomlabel ATOMLABEL [-logfile LOGFILE]
-                   [-LGF_jmin LGF_JMIN] [-LGF_jmax LGF_JMAX]
+                   [-LGF_jmin LGF_JMIN] [-LGF_jmax LGF_JMAX] [-tol TOL]
                    inputfile atomxyzfile Dfile Gfile
 
 Computes the dislocation lattice Green function.
@@ -81,8 +88,8 @@ Computes the dislocation lattice Green function.
 positional arguments:
   inputfile             input file that contains the crystal and dislocation setup info
   atomxyzfile           xyz file that contains the atom positions
-  Dfile                 .mtx file to read the FC matrix D from
-  Gfile                 .npy file to save the computed G to
+  Dfile                 HDF5 file to read the FC matrix D from
+  Gfile                 HDF5 file to save the computed G to
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -93,6 +100,7 @@ optional arguments:
   -LGF_jmin LGF_JMIN    (int) first atom index to compute LGF for. Default is the first atom in region 2.
   -LGF_jmax LGF_JMAX    (int) last atom index to compute LGF for. Default is the last atom in region 2.
   			Note! Atom indices are based on 0-based indexing.
+  -tol TOL              (float) tolerance for CG solver.
 ```
 The optional arguments -LGF_jmin and -LGF_jmax can be used to parallalize this calculation, so that multiple jobs can be run concurrently with each looping over different subsets of atom indices. At the end, you simply stack the LGF matrices column-wise.
 
@@ -116,7 +124,7 @@ Write the LGFCAR.
 
 positional arguments:
   atomxyzfile           xyz file that contains the atom positions
-  Gfile                 .npy file with the computed G
+  Gfile                 HDF5 file with the computed G
   LGFCARfile            LGFCAR file to write to
   header                header for LGFCAR (string)
 
@@ -132,6 +140,4 @@ optional arguments:
 			Despite the flag, this is a REQUIRED (not optional) argument!
 			The elements must be numbered in the same order as in the POSCAR/POTCAR as this will be used to map atoms onto the DFT ordering.
 ```
-
-
 
