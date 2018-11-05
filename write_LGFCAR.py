@@ -1,4 +1,5 @@
 import argparse
+import h5py
 import numpy as np
 import IO_vasp
 import IO_xyz
@@ -24,7 +25,7 @@ if __name__ == '__main__':
                         'The elements must be numbered in the same order as in the POSCAR/POTCAR '
                         'as this will be used to map atoms onto the DFT ordering.')
     parser.add_argument('Gfile',
-                        help='.npy file with the computed G')
+                        help='HDF5 file with the computed G')
     parser.add_argument('LGFCARfile',
                         help='LGFCAR file to write to')
     parser.add_argument('header',
@@ -36,16 +37,18 @@ if __name__ == '__main__':
         raise ValueError('number of atom labels and element indices do not match!')
     
     ## read in grid
-    with open(args.atomxyzfile,'r') as f2:
-        grid,[size_1,size_12,size_123,size_in] = IO_xyz.grid_from_xyz_reg(f2.read(),args.atomlabel)
+    with open(args.atomxyzfile,'r') as f1:
+        grid,[size_1,size_12,size_123,size_in] = IO_xyz.grid_from_xyz_reg(f1.read(),args.atomlabel)
     
     ## load the G matrix that we computed with calc_LGF.py
-    G0 = np.load(args.Gfile)
+#    G0 = np.load(args.Gfile)
+    with h5py.File(args.Gfile, 'r') as f2:
+        G0 = f2['GF'].value
 
     ## map atom indices used in calculating LGF to atom indices in VASP
     mapping = IO_vasp.map_indices(grid[:size_123],args.elementindex)
 
     ## write to LGFCAR file 
-    with open(args.LGFCARfile, 'w') as f:
-        f.write(IO_vasp.write_LGFCAR(G0,mapping,size_1,size_12,size_123,args.header))
+    with open(args.LGFCARfile, 'w') as f3:
+        f3.write(IO_vasp.write_LGFCAR(G0,mapping,size_1,size_12,size_123,args.header))
 
