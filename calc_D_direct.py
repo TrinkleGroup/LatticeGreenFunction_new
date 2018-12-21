@@ -210,7 +210,7 @@ if __name__ == '__main__':
 
     ## initialize lammps_settings object
     datafilename = 'disl.data'      
-    ls = lammps_settings(datafilename,args.lammpspairfile,args.maxcgiter,args.ftol)
+    ls = lammps_settings(datafilename,args.lammpspairfile)
 
     ## write lammps .data file of dislocation geometry
     with open(ls.datafilename, 'w') as f:
